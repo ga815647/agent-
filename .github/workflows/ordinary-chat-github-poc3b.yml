@@ -46,6 +46,20 @@ jobs:
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
           if [ -z "$CHROME" ]; then echo 'NO_CHROME_FOUND'; exit 2; fi
           "$CHROME" --user-data-dir="$RUNNER_TEMP/chatgpt-profile" --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 --no-first-run --no-default-browser-check --disable-dev-shm-usage --window-size=1365,900 https://chatgpt.com/ >"$RUNNER_TEMP/chrome.log" 2>&1 &
+
+          CDP_READY=''
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:9222/json/version >/dev/null 2>&1; then CDP_READY=1; break; fi
+            sleep 1
+          done
+          if [ -z "$CDP_READY" ]; then
+            echo 'CDP_NOT_READY'
+            echo '--- chrome.log ---'
+            cat "$RUNNER_TEMP/chrome.log" || true
+            exit 4
+          fi
+          echo 'CDP_READY'
+
           cloudflared tunnel --url http://127.0.0.1:6080 --no-autoupdate >"$RUNNER_TEMP/cloudflared.log" 2>&1 &
           URL=''
           for i in $(seq 1 60); do
