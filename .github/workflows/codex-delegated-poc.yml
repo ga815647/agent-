@@ -8,9 +8,6 @@ permissions:
   contents: read
   issues: write
 
-env:
-  CODEX_HOME: ${{ runner.temp }}/codex-home
-
 jobs:
   preflight:
     if: >-
@@ -34,12 +31,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body $'CODEX_DELEGATE_BLOCKED\n\nstatus: BLOCKED_AUTH\n\nThis PoC intentionally does not fall back to an OpenAI API key. Add the repository secret `CODEX_AUTH_JSON` containing the `$CODEX_HOME/auth.json` created by an official `codex login` / `codex login --device-auth` ChatGPT subscription login, then open a new `CODEX-DELEGATE-*` issue.'
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body $'CODEX_DELEGATE_BLOCKED\n\nstatus: BLOCKED_AUTH\n\nThis PoC intentionally does not fall back to an OpenAI API key. Add repository secret `CODEX_AUTH_JSON` containing the `$CODEX_HOME/auth.json` created by an official `codex login` / `codex login --device-auth` ChatGPT subscription login, then open a new `CODEX-DELEGATE-*` issue.'
 
   workers:
     needs: preflight
     if: needs.preflight.outputs.auth_ready == 'true'
     runs-on: ubuntu-latest
+    env:
+      CODEX_HOME: ${{ runner.temp }}/codex-home
     strategy:
       fail-fast: false
       matrix:
@@ -64,7 +63,6 @@ jobs:
           codex login status
 
       - name: Build worker prompt
-        id: prompt
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
           ROLE: ${{ matrix.role }}
@@ -104,6 +102,8 @@ jobs:
     needs: [preflight, workers]
     if: needs.preflight.outputs.auth_ready == 'true' && needs.workers.result == 'success'
     runs-on: ubuntu-latest
+    env:
+      CODEX_HOME: ${{ runner.temp }}/codex-home
     steps:
       - uses: actions/checkout@v5
 
