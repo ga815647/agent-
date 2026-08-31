@@ -38,7 +38,7 @@ jobs:
     if: needs.preflight.outputs.auth_ready == 'true'
     runs-on: ubuntu-latest
     env:
-      CODEX_HOME: ${{ runner.temp }}/codex-home
+      CODEX_HOME: /tmp/codex-home
     strategy:
       fail-fast: false
       matrix:
@@ -103,7 +103,7 @@ jobs:
     if: needs.preflight.outputs.auth_ready == 'true' && needs.workers.result == 'success'
     runs-on: ubuntu-latest
     env:
-      CODEX_HOME: ${{ runner.temp }}/codex-home
+      CODEX_HOME: /tmp/codex-home
     steps:
       - uses: actions/checkout@v5
 
