@@ -127,3 +127,5 @@ jobs:
           name: ordinary-chat-poc3b-result
           path: ordinary-chat-poc3b/poc3b-result.json
           if-no-files-found: warn
+
+# rotation marker: 2026-08-31T23:18
