@@ -1,0 +1,13 @@
+{
+  "name": "ordinary-chat-poc3b",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check poc3b.mjs",
+    "run": "node poc3b.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "latest"
+  }
+}
