@@ -1,0 +1,39 @@
+name: Subchat Bridge PoC
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  bridge-poc:
+    if: startsWith(github.event.issue.title, 'SUBCHAT-POC')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acknowledge dispatch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            const preview = body.slice(0, 1200);
+            const comment = [
+              'SUBCHAT_POC_ACK',
+              '',
+              `status: BRIDGE_OK`,
+              `run_id: ${context.runId}`,
+              `issue: #${context.issue.number}`,
+              '',
+              'payload_preview:',
+              '```',
+              preview,
+              '```'
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
