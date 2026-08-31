@@ -7,5 +7,19 @@
   "compatibility_flags": ["nodejs_compat"],
   "browser": {
     "binding": "BROWSER"
-  }
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "HANDOFF",
+        "class_name": "HandoffStore"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["HandoffStore"]
+    }
+  ]
 }
