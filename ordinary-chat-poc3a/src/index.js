@@ -12,6 +12,36 @@ const auth = (r, e) => e.ADMIN_TOKEN && r.headers.get("authorization") === `Bear
 const cid = (u) => u.match(/\/c\/([0-9a-f-]{20,})/i)?.[1] || null;
 const pathOnly = (u) => { try { const x = new URL(u); return `${x.host}${x.pathname}`; } catch { return String(u); } };
 
+export class HandoffStore {
+  constructor(ctx, env) { this.ctx = ctx; this.env = env; }
+  async fetch(request) {
+    const u = new URL(request.url);
+    if (request.method === "POST" && u.pathname === "/publish") {
+      const h = await request.json();
+      await this.ctx.storage.put("handoff", h);
+      return J({ ok:true, stored:true, run_id:h.run_id || null });
+    }
+    if (request.method === "POST" && u.pathname === "/clear") {
+      await this.ctx.storage.delete("handoff");
+      return J({ ok:true, cleared:true });
+    }
+    if (request.method === "GET" && u.pathname === "/current") {
+      let h = await this.ctx.storage.get("handoff");
+      if (h?.expires_at && Date.now() > h.expires_at) {
+        await this.ctx.storage.delete("handoff");
+        h = null;
+      }
+      return J({ ok:!!h, handoff:h || null });
+    }
+    return J({ok:false,error:"NOT_FOUND"},404);
+  }
+}
+
+function handoffStub(env) {
+  const id = env.HANDOFF.idFromName("ordinary-chat-poc3b-current");
+  return env.HANDOFF.get(id);
+}
+
 async function visible(page, selectors) {
   for (const s of selectors) {
     const x = page.locator(s).first();
@@ -123,9 +153,16 @@ async function run(env, sessionId) {
   return result;
 }
 
+function handoffPanel() { return `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>PoC-3B Protected Handoff</title>
+<style>body{font-family:system-ui;max-width:760px;margin:28px auto;padding:0 16px}input{width:100%;padding:12px;box-sizing:border-box}button{padding:11px;margin:10px 0}pre{white-space:pre-wrap;background:#eee;padding:12px;border-radius:8px}a{word-break:break-all;font-size:18px}</style>
+<h2>PoC-3B Protected Handoff</h2><p>Enter POC3A_ADMIN_TOKEN. Tunnel credentials are never written to the public GitHub repository.</p>
+<input id=t type=password placeholder="POC3A_ADMIN_TOKEN"><button id=b>Load current handoff</button><div id=v></div><pre id=o>Waiting</pre>
+<script>const o=document.querySelector('#o'),v=document.querySelector('#v');b.onclick=async()=>{const r=await fetch('/api/handoff/current',{headers:{authorization:'Bearer '+t.value}});const j=await r.json();if(!j.ok){o.textContent=JSON.stringify(j,null,2);v.innerHTML='';return}const h=j.handoff;o.textContent='Run: '+h.run_id+'\nBasic user: '+h.basic_user+'\nBasic password: '+h.basic_pass+'\nVNC password: '+h.vnc_pass+'\nExpires: '+new Date(h.expires_at).toLocaleString();v.innerHTML='<p><a target=_blank rel=noopener href="'+h.novnc_url+'">Open protected remote Chrome</a></p>'}</script>`; }
+
 function panel() { return `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>PoC-3A</title>
 <style>body{font-family:system-ui;max-width:800px;margin:30px auto;padding:0 16px}input{width:100%;padding:10px;box-sizing:border-box}button{padding:10px;margin:8px 5px 8px 0}pre{white-space:pre-wrap;background:#eee;padding:12px}a{word-break:break-all}</style>
 <h2>Ordinary ChatGPT Worker PoC-3A</h2><p>Cloudflare Browser Run only. No OpenAI API token.</p>
+<p><a href="/handoff">PoC-3B protected handoff</a></p>
 <input id=t type=password placeholder="POC3A_ADMIN_TOKEN"><br><button id=s>1 Start login</button><button id=r disabled>2 Run test</button><button id=l>Limits</button><p id=v></p><pre id=o>Ready</pre>
 <script>let sid;const o=document.querySelector('#o'),v=document.querySelector('#v'),r=document.querySelector('#r');
 async function call(p,b={}){const x=await fetch(p,{method:'POST',headers:{authorization:'Bearer '+document.querySelector('#t').value,'content-type':'application/json'},body:JSON.stringify(b)});const j=await x.json();o.textContent=JSON.stringify(j,null,2);return j}
@@ -135,8 +172,17 @@ r.onclick=async()=>{r.disabled=true;const j=await call('/api/run',{session_id:si
 export default { async fetch(request, env) {
   const u = new URL(request.url);
   if (request.method === "GET" && u.pathname === "/") return new Response(panel(), { headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"} });
+  if (request.method === "GET" && u.pathname === "/handoff") return new Response(handoffPanel(), { headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"} });
   if (request.method === "GET" && u.pathname === "/health") return J({ok:true,service:"ordinary-chat-poc3a"});
   if (u.pathname.startsWith("/api/") && !auth(request,env)) return J({ok:false,error:"UNAUTHORIZED"},401);
+
+  if (u.pathname === "/api/handoff/current" && request.method === "GET") return handoffStub(env).fetch("https://handoff/current");
+  if (u.pathname === "/api/handoff/publish" && request.method === "POST") {
+    const body = await request.text();
+    return handoffStub(env).fetch("https://handoff/publish", {method:"POST",headers:{"content-type":"application/json"},body});
+  }
+  if (u.pathname === "/api/handoff/clear" && request.method === "POST") return handoffStub(env).fetch("https://handoff/clear", {method:"POST"});
+
   if (request.method === "POST" && u.pathname === "/api/limits") return J({ok:true,limits:await limits(env.BROWSER)});
   if (request.method === "POST" && u.pathname === "/api/login/start") try { return J(await startLogin(env)); } catch(e) { return J({ok:false,status:"START_FAILED",error:String(e?.stack||e)},500); }
   if (request.method === "POST" && u.pathname === "/api/run") {
