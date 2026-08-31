@@ -16,6 +16,21 @@ async function visible(page, sels) {
   }
   return null;
 }
+async function loggedIn(page) {
+  if (!page?.url().includes('chatgpt.com')) return false;
+  const login = await visible(page, [
+    'button:has-text("Log in")','a:has-text("Log in")','button:has-text("登入")','a:has-text("登入")',
+    'button:has-text("Sign up")','a:has-text("Sign up")','button:has-text("註冊")','a:has-text("註冊")'
+  ]);
+  if (login) return false;
+  const profile = await visible(page, [
+    '[data-testid="profile-button"]','[data-testid="accounts-profile-button"]','button[data-testid*="profile"]',
+    'button[aria-label*="Profile"]','button[aria-label*="Account"]','button[aria-label*="帳戶"]','button[aria-label*="個人"]'
+  ]);
+  if (profile) return true;
+  const historyCount = await page.locator('a[href^="/c/"]').count().catch(() => 0);
+  return historyCount > 0;
+}
 async function lastAssistant(page) {
   const loc = page.locator('[data-message-author-role="assistant"]');
   try { const n = await loc.count(); return n ? (await loc.nth(n - 1).innerText()).trim() : ''; } catch { return ''; }
@@ -35,31 +50,43 @@ async function waitStableAnswer(page, timeout = 180000) {
 
 const browser = await chromium.connectOverCDP(CDP);
 const context = browser.contexts()[0];
-let page = context.pages().find(p => p.url().includes('chatgpt.com')) || context.pages()[0] || await context.newPage();
+let page = context.pages().find(p => p.url().includes('chatgpt.com')) || context.pages().at(-1) || await context.newPage();
 const posts = [];
-page.on('request', r => {
+const attach = p => p.on('request', r => {
   if (r.method() === 'POST' && r.url().startsWith('https://chatgpt.com') && posts.length < 150) posts.push(pathOnly(r.url()));
 });
+context.pages().forEach(attach);
+context.on('page', attach);
 
-if (!page.url().includes('chatgpt.com')) await page.goto('https://chatgpt.com/', {waitUntil:'domcontentloaded', timeout:45000}).catch(()=>{});
-console.log('WAITING_FOR_LOGIN');
+if (!context.pages().some(p => p.url().includes('chatgpt.com'))) await page.goto('https://chatgpt.com/', {waitUntil:'domcontentloaded', timeout:45000}).catch(()=>{});
+console.log('WAITING_FOR_AUTHENTICATED_CHATGPT_UI');
 
 let composer = null;
-for (let i=0;i<600;i++) {
-  composer = await visible(page, ['#prompt-textarea','[data-testid="prompt-textarea"]','div[contenteditable="true"][role="textbox"]']);
-  if (composer) break;
-  if (i % 10 === 0) console.log(`LOGIN_WAIT ${i}s url=${page.url()}`);
+let authenticated = false;
+for (let i=0;i<720;i++) {
+  page = context.pages().find(p => p.url().includes('chatgpt.com')) || context.pages().at(-1) || page;
+  if (page?.url().includes('chatgpt.com')) {
+    authenticated = await loggedIn(page);
+    if (authenticated) {
+      if (/\/work(?:\/|$)|\/codex(?:\/|$)/i.test(new URL(page.url()).pathname)) {
+        await page.goto('https://chatgpt.com/', {waitUntil:'domcontentloaded', timeout:45000}).catch(()=>{});
+      }
+      composer = await visible(page, ['#prompt-textarea','[data-testid="prompt-textarea"]','div[contenteditable="true"][role="textbox"]']);
+      if (composer) break;
+    }
+  }
+  if (i % 10 === 0) console.log(`AUTH_WAIT ${i}s url=${page?.url() || ''} authenticated=${authenticated}`);
   await sleep(1000);
 }
 
-if (!composer) {
-  const result = {status:'FAIL', reason:'LOGIN_TIMEOUT_OR_BOT_GATE', current_url:page.url(), title:await page.title().catch(()=>''), openai_api_token_used:false};
+if (!composer || !authenticated) {
+  const result = {status:'FAIL', reason:'AUTH_LOGIN_TIMEOUT_OR_BOT_GATE', current_url:page?.url() || null, title:await page?.title().catch(()=>''), openai_api_token_used:false};
   fs.writeFileSync('poc3b-result.json', JSON.stringify(result,null,2));
   console.log(JSON.stringify(result));
   process.exit(2);
 }
 
-console.log('LOGIN_DETECTED_SENDING_FIXED_PROMPT');
+console.log('AUTHENTICATED_ORDINARY_CHAT_DETECTED_SENDING_FIXED_PROMPT');
 await composer.click();
 try { await composer.fill(PROMPT); } catch { await page.keyboard.insertText(PROMPT); }
 const send = await visible(page, ['button[data-testid="send-button"]','button[aria-label="Send prompt"]','button[aria-label="Send message"]','button[aria-label*="傳送"]']);
@@ -70,7 +97,7 @@ const conversation_url = page.url();
 const conversation_id = cid(conversation_url);
 let history_link_seen = false;
 if (conversation_id) {
-  for (let i=0;i<10 && !history_link_seen;i++) {
+  for (let i=0;i<15 && !history_link_seen;i++) {
     history_link_seen = await page.locator(`a[href^="/c/${conversation_id}"]`).count().then(n=>n>0).catch(()=>false);
     if (!history_link_seen) await sleep(1000);
   }
