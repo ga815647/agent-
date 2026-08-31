@@ -14,7 +14,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 40
     permissions:
       contents: read
     defaults:
@@ -99,7 +99,7 @@ jobs:
           if [ -z "$URL" ]; then echo 'TUNNEL_NOT_READY'; exit 3; fi
 
           NOVNC_URL="${URL}/vnc.html?autoconnect=1&resize=scale"
-          EXPIRES_AT="$(($(date +%s%3N) + 900000))"
+          EXPIRES_AT="$(($(date +%s%3N) + 2100000))"
           BODY="$(jq -nc --arg run_id "$GITHUB_RUN_ID" --arg novnc_url "$NOVNC_URL" --arg basic_user "$BASIC_USER" --arg basic_pass "$BASIC_PASS" --argjson expires_at "$EXPIRES_AT" '{run_id:$run_id,novnc_url:$novnc_url,basic_user:$basic_user,basic_pass:$basic_pass,expires_at:$expires_at}')"
           curl -fsS -X POST 'https://ordinary-chat-poc3a.ga815647.workers.dev/api/handoff/publish' \
             -H "Authorization: Bearer $POC3A_ADMIN_TOKEN" -H 'content-type: application/json' \
