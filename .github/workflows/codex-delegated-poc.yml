@@ -1,0 +1,169 @@
+name: Codex Delegated PoC
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  CODEX_HOME: ${{ runner.temp }}/codex-home
+
+jobs:
+  preflight:
+    if: >-
+      github.event.issue.user.login == github.repository_owner &&
+      startsWith(github.event.issue.title, 'CODEX-DELEGATE-')
+    runs-on: ubuntu-latest
+    outputs:
+      auth_ready: ${{ steps.auth.outputs.ready }}
+    steps:
+      - id: auth
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          if [ -n "$CODEX_AUTH_JSON" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Report missing auth
+        if: steps.auth.outputs.ready != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body $'CODEX_DELEGATE_BLOCKED\n\nstatus: BLOCKED_AUTH\n\nThis PoC intentionally does not fall back to an OpenAI API key. Add the repository secret `CODEX_AUTH_JSON` containing the `$CODEX_HOME/auth.json` created by an official `codex login` / `codex login --device-auth` ChatGPT subscription login, then open a new `CODEX-DELEGATE-*` issue.'
+
+  workers:
+    needs: preflight
+    if: needs.preflight.outputs.auth_ready == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        role: [solver, falsifier]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex@latest
+
+      - name: Restore ChatGPT subscription auth
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          mkdir -p "$CODEX_HOME"
+          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+          codex login status
+
+      - name: Build worker prompt
+        id: prompt
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ROLE: ${{ matrix.role }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          task = os.environ['ISSUE_BODY']
+          role = os.environ['ROLE']
+          if role == 'solver':
+              instructions = '''You are an independent solver. Reconstruct the real goal from the job packet and solve it from scratch. Treat every USER HYPOTHESIS as unverified, not as evidence. Identify the strongest alternative if it could change the decision. Do not defer to another worker or to the user's preferred answer.'''
+          else:
+              instructions = '''You are the falsifier. Assume the leading or user-favored conclusion may be wrong. Find the strongest materially decision-changing case against it. Distinguish strong contradictions from weak objections. If serious challenge does not overturn the conclusion, say PASS rather than manufacturing disagreement.'''
+          Path('worker_prompt.txt').write_text(instructions + '\n\nJOB PACKET:\n' + task, encoding='utf-8')
+          PY
+
+      - name: Run isolated Terra worker
+        env:
+          ROLE: ${{ matrix.role }}
+        run: |
+          codex exec \
+            --model gpt-5.6-terra \
+            -c 'model_reasoning_effort="high"' \
+            --sandbox read-only \
+            --ignore-user-config \
+            --output-last-message "worker-${ROLE}.txt" \
+            - < worker_prompt.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codex-worker-${{ matrix.role }}
+          path: worker-${{ matrix.role }}.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  judge:
+    needs: [preflight, workers]
+    if: needs.preflight.outputs.auth_ready == 'true' && needs.workers.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex@latest
+
+      - name: Restore ChatGPT subscription auth
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          mkdir -p "$CODEX_HOME"
+          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+          codex login status
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: codex-worker-*
+          path: worker-results
+          merge-multiple: true
+
+      - name: Build judge prompt
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          task = os.environ['ISSUE_BODY']
+          solver = Path('worker-results/worker-solver.txt').read_text(encoding='utf-8')
+          falsifier = Path('worker-results/worker-falsifier.txt').read_text(encoding='utf-8')
+          prompt = f'''You are the final judge. Decide from the original job packet and the two isolated worker reports. Do not use majority vote. Resolve disagreements by evidence and reasoning. Explicitly check whether either worker accepted a USER HYPOTHESIS as fact. Return a compact decision packet with: DECISION, WHY, STRONGEST DISSENT, WHAT WOULD CHANGE THE DECISION, CONFIDENCE.\n\nORIGINAL JOB PACKET:\n{task}\n\nINDEPENDENT SOLVER:\n{solver}\n\nFALSIFIER:\n{falsifier}\n'''
+          Path('judge_prompt.txt').write_text(prompt, encoding='utf-8')
+          PY
+
+      - name: Run Sol judge
+        run: |
+          codex exec \
+            --model gpt-5.6-sol \
+            -c 'model_reasoning_effort="high"' \
+            --sandbox read-only \
+            --ignore-user-config \
+            --output-last-message judge.txt \
+            - < judge_prompt.txt
+
+      - name: Return decision to ordinary Chat via GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo 'CODEX_DELEGATE_COMPLETE'
+            echo
+            echo 'status: PASS'
+            echo 'workers: terra-high solver + terra-high falsifier'
+            echo 'judge: sol-high'
+            echo
+            cat judge.txt
+          } > comment.txt
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body-file comment.txt
