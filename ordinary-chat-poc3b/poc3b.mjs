@@ -4,6 +4,7 @@ import fs from 'node:fs';
 const PROMPT = 'Return exactly: ORDINARY_CHAT_WORKER_001';
 const EXPECTED = 'ORDINARY_CHAT_WORKER_001';
 const CDP = process.env.CDP_URL || 'http://127.0.0.1:9222';
+const AUTH_WAIT_SECONDS = 1800;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const pathOnly = u => { try { const x = new URL(u); return `${x.host}${x.pathname}`; } catch { return String(u); } };
@@ -59,11 +60,11 @@ context.pages().forEach(attach);
 context.on('page', attach);
 
 if (!context.pages().some(p => p.url().includes('chatgpt.com'))) await page.goto('https://chatgpt.com/', {waitUntil:'domcontentloaded', timeout:45000}).catch(()=>{});
-console.log('WAITING_FOR_AUTHENTICATED_CHATGPT_UI');
+console.log(`WAITING_FOR_AUTHENTICATED_CHATGPT_UI max=${AUTH_WAIT_SECONDS}s`);
 
 let composer = null;
 let authenticated = false;
-for (let i=0;i<720;i++) {
+for (let i=0;i<AUTH_WAIT_SECONDS;i++) {
   page = context.pages().find(p => p.url().includes('chatgpt.com')) || context.pages().at(-1) || page;
   if (page?.url().includes('chatgpt.com')) {
     authenticated = await loggedIn(page);
@@ -80,7 +81,15 @@ for (let i=0;i<720;i++) {
 }
 
 if (!composer || !authenticated) {
-  const result = {status:'FAIL', reason:'AUTH_LOGIN_TIMEOUT_OR_BOT_GATE', current_url:page?.url() || null, title:await page?.title().catch(()=>''), openai_api_token_used:false};
+  const currentUrl = page?.url() || null;
+  const onGoogle = !!currentUrl && currentUrl.includes('accounts.google.com');
+  const result = {
+    status:'FAIL',
+    reason:onGoogle ? 'MANUAL_GOOGLE_LOGIN_TIMEOUT' : 'AUTH_LOGIN_TIMEOUT_OR_GATE',
+    current_url:currentUrl,
+    title:await page?.title().catch(()=>''),
+    openai_api_token_used:false
+  };
   fs.writeFileSync('poc3b-result.json', JSON.stringify(result,null,2));
   console.log(JSON.stringify(result));
   process.exit(2);
