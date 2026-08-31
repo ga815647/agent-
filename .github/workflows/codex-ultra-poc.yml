@@ -1,0 +1,83 @@
+name: Codex Ultra PoC
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  ultra:
+    if: >-
+      github.event.issue.user.login == github.repository_owner &&
+      startsWith(github.event.issue.title, 'CODEX-ULTRA-')
+    runs-on: ubuntu-latest
+    env:
+      CODEX_HOME: /tmp/codex-home
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex@latest
+
+      - name: Restore ChatGPT subscription auth
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          if [ -z "$CODEX_AUTH_JSON" ]; then
+            echo 'Missing CODEX_AUTH_JSON' >&2
+            exit 2
+          fi
+          mkdir -p "$CODEX_HOME"
+          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+          codex login status
+
+      - name: Build neutral Ultra prompt
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          task = os.environ['ISSUE_BODY']
+          instructions = '''Solve the job packet from scratch. Treat every USER HYPOTHESIS as unverified, not as evidence. Use Ultra's multi-agent exploration as appropriate. Actively search for the strongest alternative and decision-changing counterevidence rather than merely elaborating the user's favored framing. Return a compact decision packet with: DECISION, WHY, STRONGEST DISSENT, WHAT WOULD CHANGE THE DECISION, CONFIDENCE.'''
+          Path('ultra_prompt.txt').write_text(instructions + '\n\nJOB PACKET:\n' + task, encoding='utf-8')
+          PY
+
+      - name: Run Codex Ultra
+        id: run
+        run: |
+          START=$(date +%s)
+          codex exec \
+            --model gpt-5.6-sol \
+            -c 'model_reasoning_effort="ultra"' \
+            --sandbox read-only \
+            --ignore-user-config \
+            --output-last-message ultra.txt \
+            - < ultra_prompt.txt
+          END=$(date +%s)
+          echo "elapsed_seconds=$((END-START))" >> "$GITHUB_OUTPUT"
+
+      - name: Return Ultra result to ordinary Chat via GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ELAPSED: ${{ steps.run.outputs.elapsed_seconds }}
+        run: |
+          {
+            echo 'CODEX_ULTRA_COMPLETE'
+            echo
+            echo 'status: PASS'
+            echo 'model: gpt-5.6-sol'
+            echo 'reasoning: ultra'
+            echo "elapsed_seconds: ${ELAPSED}"
+            echo
+            cat ultra.txt
+          } > comment.txt
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body-file comment.txt
