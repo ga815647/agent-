@@ -1,0 +1,17 @@
+{
+  "name": "ordinary-chat-cloudflare-poc3a",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/index.js",
+    "dev": "wrangler dev --remote",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@cloudflare/playwright": "1.3.6"
+  },
+  "devDependencies": {
+    "wrangler": "latest"
+  }
+}
