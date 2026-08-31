@@ -7,13 +7,16 @@ on:
       - 'ordinary-chat-poc3b/**'
       - '.github/workflows/ordinary-chat-github-poc3b.yml'
 
+concurrency:
+  group: ordinary-chat-poc3b-live
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 18
     permissions:
       contents: read
-      issues: write
     defaults:
       run:
         working-directory: ordinary-chat-poc3b
@@ -25,26 +28,52 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run check
 
-      - name: Install headed desktop + noVNC + cloudflared
+      - name: Install headed desktop + protected noVNC tunnel
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y xvfb x11vnc novnc websockify
+          sudo apt-get install -y xvfb x11vnc novnc websockify nginx apache2-utils
           curl -fsSL -o "$RUNNER_TEMP/cloudflared.deb" https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
           sudo dpkg -i "$RUNNER_TEMP/cloudflared.deb"
 
-      - name: Start headed Chrome and secure noVNC tunnel
+      - name: Start headed Chrome and publish protected handoff
         env:
           POC3A_ADMIN_TOKEN: ${{ secrets.POC3A_ADMIN_TOKEN }}
-          GH_TOKEN: ${{ github.token }}
         run: |
-          set -e
+          set -euo pipefail
           export DISPLAY=:99
           Xvfb :99 -screen 0 1365x900x24 -ac >"$RUNNER_TEMP/xvfb.log" 2>&1 &
           sleep 2
-          VNC_PASS="${POC3A_ADMIN_TOKEN:0:8}"
+
+          BASIC_USER='poc3b'
+          BASIC_PASS="$(openssl rand -hex 12)"
+          VNC_PASS="$(openssl rand -hex 4)"
+          htpasswd -bc /tmp/poc3b.htpasswd "$BASIC_USER" "$BASIC_PASS" >/dev/null
           x11vnc -storepasswd "$VNC_PASS" "$RUNNER_TEMP/vnc.pass" >/dev/null
           x11vnc -display :99 -rfbauth "$RUNNER_TEMP/vnc.pass" -forever -shared -localhost -rfbport 5900 >"$RUNNER_TEMP/x11vnc.log" 2>&1 &
           websockify --web=/usr/share/novnc 6080 localhost:5900 >"$RUNNER_TEMP/websockify.log" 2>&1 &
+
+          cat >"$RUNNER_TEMP/poc3b-nginx.conf" <<'NGINX'
+          error_log /tmp/poc3b-nginx-error.log;
+          pid /tmp/poc3b-nginx.pid;
+          events {}
+          http {
+            access_log off;
+            server {
+              listen 127.0.0.1:6081;
+              auth_basic "PoC-3B protected handoff";
+              auth_basic_user_file /tmp/poc3b.htpasswd;
+              location / {
+                proxy_pass http://127.0.0.1:6080;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "upgrade";
+                proxy_set_header Host $host;
+              }
+            }
+          }
+          NGINX
+          sudo nginx -c "$RUNNER_TEMP/poc3b-nginx.conf"
+
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
           if [ -z "$CHROME" ]; then echo 'NO_CHROME_FOUND'; exit 2; fi
           "$CHROME" --user-data-dir="$RUNNER_TEMP/chatgpt-profile" --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 --no-first-run --no-default-browser-check --disable-dev-shm-usage --window-size=1365,900 https://chatgpt.com/ >"$RUNNER_TEMP/chrome.log" 2>&1 &
@@ -56,32 +85,40 @@ jobs:
           done
           if [ -z "$CDP_READY" ]; then
             echo 'CDP_NOT_READY'
-            echo '--- chrome.log ---'
             cat "$RUNNER_TEMP/chrome.log" || true
             exit 4
           fi
-          echo 'CDP_READY'
 
-          cloudflared tunnel --url http://127.0.0.1:6080 --no-autoupdate >"$RUNNER_TEMP/cloudflared.log" 2>&1 &
+          cloudflared tunnel --url http://127.0.0.1:6081 --no-autoupdate >"$RUNNER_TEMP/cloudflared.log" 2>&1 &
           URL=''
           for i in $(seq 1 60); do
             URL=$(grep -Eo 'https://[-a-z0-9]+\.trycloudflare\.com' "$RUNNER_TEMP/cloudflared.log" | head -1 || true)
             [ -n "$URL" ] && break
             sleep 1
           done
-          if [ -z "$URL" ]; then cat "$RUNNER_TEMP/cloudflared.log"; exit 3; fi
-          NOVNC_URL="${URL}/vnc.html?autoconnect=1&resize=scale"
-          echo "NOVNC_URL=${NOVNC_URL}"
-          echo 'VNC_PASSWORD = first 8 characters of the existing POC3A_ADMIN_TOKEN secret.'
-          echo 'LOGIN_WINDOW_OPEN: sign into ChatGPT manually. The runner will auto-detect the ordinary Chat composer and send the fixed PoC prompt.'
-          gh issue create --repo "$GITHUB_REPOSITORY" \
-            --title "PoC-3B login handoff run ${GITHUB_RUN_ID}" \
-            --body "NOVNC_URL=${NOVNC_URL}\n\nUse the first 8 characters of the existing POC3A_ADMIN_TOKEN as the VNC password. This tunnel is ephemeral and dies with the workflow run."
+          if [ -z "$URL" ]; then echo 'TUNNEL_NOT_READY'; exit 3; fi
 
-      - name: Wait for manual login then run fixed ordinary Chat test
+          NOVNC_URL="${URL}/vnc.html?autoconnect=1&resize=scale"
+          EXPIRES_AT="$(($(date +%s%3N) + 900000))"
+          BODY="$(jq -nc --arg run_id "$GITHUB_RUN_ID" --arg novnc_url "$NOVNC_URL" --arg basic_user "$BASIC_USER" --arg basic_pass "$BASIC_PASS" --arg vnc_pass "$VNC_PASS" --argjson expires_at "$EXPIRES_AT" '{run_id:$run_id,novnc_url:$novnc_url,basic_user:$basic_user,basic_pass:$basic_pass,vnc_pass:$vnc_pass,expires_at:$expires_at}')"
+          curl -fsS -X POST 'https://ordinary-chat-poc3a.ga815647.workers.dev/api/handoff/publish' \
+            -H "Authorization: Bearer $POC3A_ADMIN_TOKEN" -H 'content-type: application/json' \
+            --data "$BODY" >/dev/null
+          echo 'PROTECTED_HANDOFF_PUBLISHED'
+          echo 'Use the protected Cloudflare handoff page; no tunnel URL or remote password is printed here.'
+
+      - name: Wait for Google-authenticated ChatGPT then run fixed ordinary Chat test
         env:
           CDP_URL: http://127.0.0.1:9222
         run: node poc3b.mjs
+
+      - name: Clear protected handoff
+        if: always()
+        env:
+          POC3A_ADMIN_TOKEN: ${{ secrets.POC3A_ADMIN_TOKEN }}
+        run: |
+          curl -fsS -X POST 'https://ordinary-chat-poc3a.ga815647.workers.dev/api/handoff/clear' \
+            -H "Authorization: Bearer $POC3A_ADMIN_TOKEN" >/dev/null || true
 
       - name: Upload evidence
         if: always()
