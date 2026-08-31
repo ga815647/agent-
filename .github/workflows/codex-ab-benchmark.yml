@@ -1,0 +1,251 @@
+name: Codex Sol A-B Benchmark
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  preflight:
+    if: >-
+      github.event.issue.user.login == github.repository_owner &&
+      startsWith(github.event.issue.title, 'CODEX-AB-BENCH-')
+    runs-on: ubuntu-latest
+    outputs:
+      auth_ready: ${{ steps.auth.outputs.ready }}
+    steps:
+      - id: auth
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          if [ -n "$CODEX_AUTH_JSON" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Report missing auth
+        if: steps.auth.outputs.ready != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body $'CODEX_AB_BENCH_BLOCKED\n\nstatus: BLOCKED_AUTH'
+
+  pure_sol:
+    needs: preflight
+    if: needs.preflight.outputs.auth_ready == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        case_id: ['1', '2', '3', '4', '5']
+    env:
+      CODEX_HOME: /tmp/codex-home
+      CASE_ID: ${{ matrix.case_id }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex@latest
+      - name: Restore ChatGPT subscription auth
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          mkdir -p "$CODEX_HOME"
+          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+          codex login status
+      - name: Build pure Sol prompt
+        run: |
+          python - <<'PY'
+          import os, runpy
+          from pathlib import Path
+          packet = runpy.run_path('.github/benchmarks/ab_cases.py')['CASES'][os.environ['CASE_ID']]
+          instructions = '''You are the final decision maker. Solve the supplied packet yourself from scratch. Treat USER HYPOTHESIS as unverified, not as evidence. Use only facts in the packet; do not inspect repository files, browse the web, or invent missing assumptions. Return under 160 words using exactly these headings: VERDICT, RESULT, DECISIVE REASON, CONFIDENCE. VERDICT must say ACCEPT HYPOTHESIS or REJECT HYPOTHESIS.'''
+          Path('prompt.txt').write_text(instructions + '\n\n' + packet, encoding='utf-8')
+          PY
+      - name: Run pure Sol High
+        id: run
+        run: |
+          START=$(date +%s)
+          codex exec \
+            --model gpt-5.6-sol \
+            -c 'model_reasoning_effort="high"' \
+            --sandbox read-only \
+            --ignore-user-config \
+            --output-last-message result.txt \
+            - < prompt.txt
+          END=$(date +%s)
+          echo "$((END-START))" > elapsed.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ab-pure-${{ matrix.case_id }}
+          path: |
+            result.txt
+            elapsed.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  terra_workers:
+    needs: preflight
+    if: needs.preflight.outputs.auth_ready == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        case_id: ['1', '2', '3', '4', '5']
+        role: [solver, falsifier]
+    env:
+      CODEX_HOME: /tmp/codex-home
+      CASE_ID: ${{ matrix.case_id }}
+      ROLE: ${{ matrix.role }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex@latest
+      - name: Restore ChatGPT subscription auth
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          mkdir -p "$CODEX_HOME"
+          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+          codex login status
+      - name: Build isolated Terra prompt
+        run: |
+          python - <<'PY'
+          import os, runpy
+          from pathlib import Path
+          packet = runpy.run_path('.github/benchmarks/ab_cases.py')['CASES'][os.environ['CASE_ID']]
+          role = os.environ['ROLE']
+          if role == 'solver':
+              instructions = '''You are a blinded independent solver. Solve from scratch. USER HYPOTHESIS is unverified and may be right or wrong. Use only the packet; do not inspect repository files or browse. Compute/check the decisive point. Return a compact report under 150 words.'''
+          else:
+              instructions = '''You are a blinded falsifier. Test the USER HYPOTHESIS for a materially decision-changing error using only the packet. Do not manufacture disagreement: if the hypothesis survives serious checking, explicitly say PASS. Do not inspect repository files or browse. Return a compact report under 150 words.'''
+          Path('prompt.txt').write_text(instructions + '\n\n' + packet, encoding='utf-8')
+          PY
+      - name: Run isolated Terra High
+        run: |
+          START=$(date +%s)
+          codex exec \
+            --model gpt-5.6-terra \
+            -c 'model_reasoning_effort="high"' \
+            --sandbox read-only \
+            --ignore-user-config \
+            --output-last-message "worker-${ROLE}.txt" \
+            - < prompt.txt
+          END=$(date +%s)
+          echo "$((END-START))" > elapsed.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ab-worker-${{ matrix.case_id }}-${{ matrix.role }}
+          path: |
+            worker-${{ matrix.role }}.txt
+            elapsed.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  augmented_sol:
+    needs: [preflight, terra_workers]
+    if: needs.preflight.outputs.auth_ready == 'true' && needs.terra_workers.result == 'success'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        case_id: ['1', '2', '3', '4', '5']
+    env:
+      CODEX_HOME: /tmp/codex-home
+      CASE_ID: ${{ matrix.case_id }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex@latest
+      - name: Restore ChatGPT subscription auth
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          mkdir -p "$CODEX_HOME"
+          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+          codex login status
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ab-worker-${{ matrix.case_id }}-*
+          path: worker-results
+          merge-multiple: true
+      - name: Build augmented Sol prompt
+        run: |
+          python - <<'PY'
+          import os, runpy
+          from pathlib import Path
+          packet = runpy.run_path('.github/benchmarks/ab_cases.py')['CASES'][os.environ['CASE_ID']]
+          solver = Path('worker-results/worker-solver.txt').read_text(encoding='utf-8')
+          falsifier = Path('worker-results/worker-falsifier.txt').read_text(encoding='utf-8')
+          instructions = '''You are the final decision maker. Solve the supplied packet and adjudicate the two blinded Terra reports. Treat USER HYPOTHESIS as unverified, not as evidence. Do not use majority vote; resolve by the packet's facts and calculations. Use only the packet and reports; do not inspect repository files or browse the web. Return under 160 words using exactly these headings: VERDICT, RESULT, DECISIVE REASON, CONFIDENCE. VERDICT must say ACCEPT HYPOTHESIS or REJECT HYPOTHESIS.'''
+          prompt = instructions + '\n\nORIGINAL PACKET:\n' + packet + '\n\nTERRA INDEPENDENT SOLVER:\n' + solver + '\n\nTERRA FALSIFIER:\n' + falsifier
+          Path('prompt.txt').write_text(prompt, encoding='utf-8')
+          PY
+      - name: Run augmented Sol High
+        run: |
+          START=$(date +%s)
+          codex exec \
+            --model gpt-5.6-sol \
+            -c 'model_reasoning_effort="high"' \
+            --sandbox read-only \
+            --ignore-user-config \
+            --output-last-message result.txt \
+            - < prompt.txt
+          END=$(date +%s)
+          echo "$((END-START))" > elapsed.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ab-aug-${{ matrix.case_id }}
+          path: |
+            result.txt
+            elapsed.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  report:
+    needs: [pure_sol, augmented_sol]
+    if: needs.pure_sol.result == 'success' && needs.augmented_sol.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ab-pure-*
+          path: pure-results
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ab-aug-*
+          path: aug-results
+      - name: Build paired report
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          out = ['CODEX_AB_BENCH_COMPLETE', '', 'status: PASS', '', 'Controlled comparison: same 5 packets; Pure = Sol High alone; Augmented = Terra High solver + Terra High falsifier → Sol High.', '']
+          for i in range(1, 6):
+              pdir = Path(f'pure-results/ab-pure-{i}')
+              adir = Path(f'aug-results/ab-aug-{i}')
+              pure = (pdir/'result.txt').read_text(encoding='utf-8').strip()
+              aug = (adir/'result.txt').read_text(encoding='utf-8').strip()
+              pe = (pdir/'elapsed.txt').read_text().strip()
+              ae = (adir/'elapsed.txt').read_text().strip()
+              out += [f'## CASE {i}', f'### B — Pure Sol High ({pe}s)', pure, '', f'### A — Terra×2 → Sol High judge ({ae}s judge only)', aug, '']
+          Path('report.md').write_text('\n'.join(out), encoding='utf-8')
+          PY
+      - name: Return benchmark outputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body-file report.md
