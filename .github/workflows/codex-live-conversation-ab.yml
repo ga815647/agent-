@@ -1,0 +1,162 @@
+name: Codex Live Conversation A-B
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  preflight:
+    if: github.event.issue.user.login == github.repository_owner && startsWith(github.event.issue.title, 'CODEX-LIVE-AB-')
+    runs-on: ubuntu-latest
+    outputs:
+      auth_ready: ${{ steps.auth.outputs.ready }}
+    steps:
+      - id: auth
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          if [ -n "$CODEX_AUTH_JSON" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"; else echo "ready=false" >> "$GITHUB_OUTPUT"; fi
+
+  pure_sol:
+    needs: preflight
+    if: needs.preflight.outputs.auth_ready == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CODEX_HOME: /tmp/codex-home
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install -g @openai/codex@latest
+      - env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          mkdir -p "$CODEX_HOME"
+          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+      - env:
+          TRANSCRIPT: ${{ github.event.issue.body }}
+        run: |
+          printf '%s\n\nReply to the final user message.' "$TRANSCRIPT" > prompt.txt
+          START=$(date +%s)
+          codex exec --model gpt-5.6-sol -c 'model_reasoning_effort="high"' --sandbox read-only --ignore-user-config --output-last-message pure.txt - < prompt.txt 2>pure.log
+          END=$(date +%s)
+          echo "$((END-START))" > pure.elapsed
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live-pure
+          path: |
+            pure.txt
+            pure.log
+            pure.elapsed
+          retention-days: 1
+
+  terra:
+    needs: preflight
+    if: needs.preflight.outputs.auth_ready == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CODEX_HOME: /tmp/codex-home
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [1, 2]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install -g @openai/codex@latest
+      - env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          mkdir -p "$CODEX_HOME"
+          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+      - env:
+          TRANSCRIPT: ${{ github.event.issue.body }}
+        run: |
+          printf '%s\n\nWhat is the best response to the final user message?' "$TRANSCRIPT" > prompt.txt
+          START=$(date +%s)
+          codex exec --model gpt-5.6-terra -c 'model_reasoning_effort="high"' --sandbox read-only --ignore-user-config --output-last-message "terra-${{ matrix.lane }}.txt" - < prompt.txt 2>"terra-${{ matrix.lane }}.log"
+          END=$(date +%s)
+          echo "$((END-START))" > "terra-${{ matrix.lane }}.elapsed"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live-terra-${{ matrix.lane }}
+          path: |
+            terra-${{ matrix.lane }}.txt
+            terra-${{ matrix.lane }}.log
+            terra-${{ matrix.lane }}.elapsed
+          retention-days: 1
+
+  augmented_sol:
+    needs: [pure_sol, terra]
+    if: needs.pure_sol.result == 'success' && needs.terra.result == 'success'
+    runs-on: ubuntu-latest
+    env:
+      CODEX_HOME: /tmp/codex-home
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install -g @openai/codex@latest
+      - env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          mkdir -p "$CODEX_HOME"
+          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: live-terra-*
+          path: terra-results
+          merge-multiple: true
+      - env:
+          TRANSCRIPT: ${{ github.event.issue.body }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          transcript = os.environ['TRANSCRIPT']
+          t1 = Path('terra-results/terra-1.txt').read_text(encoding='utf-8')
+          t2 = Path('terra-results/terra-2.txt').read_text(encoding='utf-8')
+          Path('prompt.txt').write_text(transcript + '\n\nTwo other attempts at answering the final user message:\n\nATTEMPT 1:\n' + t1 + '\n\nATTEMPT 2:\n' + t2 + '\n\nReply to the final user message.', encoding='utf-8')
+          PY
+          START=$(date +%s)
+          codex exec --model gpt-5.6-sol -c 'model_reasoning_effort="high"' --sandbox read-only --ignore-user-config --output-last-message augmented.txt - < prompt.txt 2>augmented.log
+          END=$(date +%s)
+          echo "$((END-START))" > augmented.elapsed
+      - uses: actions/download-artifact@v4
+        with:
+          name: live-pure
+          path: pure-result
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo 'CODEX_LIVE_AB_COMPLETE'
+            echo
+            echo '## B — Pure Sol High'
+            cat pure-result/pure.txt
+            echo
+            echo '## Terra attempt 1'
+            cat terra-results/terra-1.txt
+            echo
+            echo '## Terra attempt 2'
+            cat terra-results/terra-2.txt
+            echo
+            echo '## A — Terra×2 → Sol High'
+            cat augmented.txt
+            echo
+            echo '## Timing'
+            echo "Pure Sol: $(cat pure-result/pure.elapsed)s"
+            echo "Augmented Sol judge only: $(cat augmented.elapsed)s"
+          } > comment.md
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body-file comment.md
