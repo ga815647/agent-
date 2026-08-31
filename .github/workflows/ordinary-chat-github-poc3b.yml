@@ -13,6 +13,7 @@ jobs:
     timeout-minutes: 18
     permissions:
       contents: read
+      issues: write
     defaults:
       run:
         working-directory: ordinary-chat-poc3b
@@ -34,6 +35,7 @@ jobs:
       - name: Start headed Chrome and secure noVNC tunnel
         env:
           POC3A_ADMIN_TOKEN: ${{ secrets.POC3A_ADMIN_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -e
           export DISPLAY=:99
@@ -68,9 +70,13 @@ jobs:
             sleep 1
           done
           if [ -z "$URL" ]; then cat "$RUNNER_TEMP/cloudflared.log"; exit 3; fi
-          echo "NOVNC_URL=${URL}/vnc.html?autoconnect=1&resize=scale"
+          NOVNC_URL="${URL}/vnc.html?autoconnect=1&resize=scale"
+          echo "NOVNC_URL=${NOVNC_URL}"
           echo 'VNC_PASSWORD = first 8 characters of the existing POC3A_ADMIN_TOKEN secret.'
           echo 'LOGIN_WINDOW_OPEN: sign into ChatGPT manually. The runner will auto-detect the ordinary Chat composer and send the fixed PoC prompt.'
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "PoC-3B login handoff run ${GITHUB_RUN_ID}" \
+            --body "NOVNC_URL=${NOVNC_URL}\n\nUse the first 8 characters of the existing POC3A_ADMIN_TOKEN as the VNC password. This tunnel is ephemeral and dies with the workflow run."
 
       - name: Wait for manual login then run fixed ordinary Chat test
         env:
