@@ -46,10 +46,10 @@ jobs:
 
           BASIC_USER='poc3b'
           BASIC_PASS="$(openssl rand -hex 12)"
-          VNC_PASS="$(openssl rand -hex 4)"
           htpasswd -bc /tmp/poc3b.htpasswd "$BASIC_USER" "$BASIC_PASS" >/dev/null
-          x11vnc -storepasswd "$VNC_PASS" "$RUNNER_TEMP/vnc.pass" >/dev/null
-          x11vnc -display :99 -rfbauth "$RUNNER_TEMP/vnc.pass" -forever -shared -localhost -rfbport 5900 >"$RUNNER_TEMP/x11vnc.log" 2>&1 &
+
+          # VNC itself is localhost-only and has no password. External access is protected by nginx Basic Auth + HTTPS tunnel.
+          x11vnc -display :99 -nopw -forever -shared -localhost -rfbport 5900 >"$RUNNER_TEMP/x11vnc.log" 2>&1 &
           websockify --web=/usr/share/novnc 6080 localhost:5900 >"$RUNNER_TEMP/websockify.log" 2>&1 &
 
           cat >"$RUNNER_TEMP/poc3b-nginx.conf" <<'NGINX'
@@ -100,7 +100,7 @@ jobs:
 
           NOVNC_URL="${URL}/vnc.html?autoconnect=1&resize=scale"
           EXPIRES_AT="$(($(date +%s%3N) + 900000))"
-          BODY="$(jq -nc --arg run_id "$GITHUB_RUN_ID" --arg novnc_url "$NOVNC_URL" --arg basic_user "$BASIC_USER" --arg basic_pass "$BASIC_PASS" --arg vnc_pass "$VNC_PASS" --argjson expires_at "$EXPIRES_AT" '{run_id:$run_id,novnc_url:$novnc_url,basic_user:$basic_user,basic_pass:$basic_pass,vnc_pass:$vnc_pass,expires_at:$expires_at}')"
+          BODY="$(jq -nc --arg run_id "$GITHUB_RUN_ID" --arg novnc_url "$NOVNC_URL" --arg basic_user "$BASIC_USER" --arg basic_pass "$BASIC_PASS" --argjson expires_at "$EXPIRES_AT" '{run_id:$run_id,novnc_url:$novnc_url,basic_user:$basic_user,basic_pass:$basic_pass,expires_at:$expires_at}')"
           curl -fsS -X POST 'https://ordinary-chat-poc3a.ga815647.workers.dev/api/handoff/publish' \
             -H "Authorization: Bearer $POC3A_ADMIN_TOKEN" -H 'content-type: application/json' \
             --data "$BODY" >/dev/null
@@ -127,5 +127,3 @@ jobs:
           name: ordinary-chat-poc3b-result
           path: ordinary-chat-poc3b/poc3b-result.json
           if-no-files-found: warn
-
-# rotation marker: 2026-08-31T23:18
