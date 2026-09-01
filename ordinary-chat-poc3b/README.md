@@ -41,6 +41,14 @@ After `status` reports `AUTHENTICATED`, submit the fixed acceptance prompt in a 
 
 This command records only whether an ordinary `/c/...` conversation was created and whether the fixed user prompt was submitted. It does not retrieve, parse, or scrape assistant output.
 
+For the repo-scoped self-hosted Actions PoC, `dispatch` reads the issue payload only from the `SUBCHAT_HOST_PROMPT` environment variable. It returns execution metadata and the ordinary conversation URL, but never reads the assistant response:
+
+```powershell
+$env:SUBCHAT_HOST_PROMPT = 'Return exactly: ACTIONS_PERSISTENT_CHAT_001'
+.\persistent-host.ps1 dispatch
+Remove-Item Env:\SUBCHAT_HOST_PROMPT
+```
+
 Before a reboot, create a non-secret checkpoint and close Chrome cleanly:
 
 ```powershell

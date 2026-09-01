@@ -20,7 +20,7 @@ const RESULT_PATH = path.join(HOST_ROOT, 'last-result.json');
 const OWNER_PATH = path.join(HOST_ROOT, 'profile-owner.json');
 const LOCK_PATH = path.join(HOST_ROOT, 'controller.lock');
 const ACTION = process.argv[2] || 'status';
-const VALID_ACTIONS = new Set(['start', 'open', 'status', 'stop', 'send-test', 'checkpoint']);
+const VALID_ACTIONS = new Set(['start', 'open', 'status', 'stop', 'send-test', 'dispatch', 'checkpoint']);
 
 function jsonOut(value) {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
@@ -353,7 +353,14 @@ async function openChat() {
   return 0;
 }
 
-async function sendFixedPrompt() {
+function issueDispatchPrompt() {
+  const prompt = process.env.SUBCHAT_HOST_PROMPT;
+  if (!prompt || !prompt.trim()) throw new Error('SUBCHAT_HOST_PROMPT is empty.');
+  if (Buffer.byteLength(prompt, 'utf8') > 60000) throw new Error('SUBCHAT_HOST_PROMPT exceeds the 60 KB PoC limit.');
+  return prompt.trim();
+}
+
+async function submitPrompt(prompt) {
   const started = await ensureBrowserStarted();
   const { context } = await connectBrowser();
   const authenticatedPage = await chatPage(context);
@@ -385,9 +392,9 @@ async function sendFixedPrompt() {
 
   await composer.click();
   try {
-    await composer.fill(FIXED_PROMPT);
+    await composer.fill(prompt);
   } catch {
-    await page.keyboard.insertText(FIXED_PROMPT);
+    await page.keyboard.insertText(prompt);
   }
   const send = await firstVisible(page, [
     'button[data-testid="send-button"]',
@@ -400,13 +407,16 @@ async function sendFixedPrompt() {
 
   await page.waitForURL(/\/c\/[0-9a-f-]{20,}/i, { timeout: 60000 }).catch(() => {});
   const conversationCreated = /\/c\/[0-9a-f-]{20,}/i.test(new URL(page.url()).pathname);
-  const promptVisible = await page.getByText(FIXED_PROMPT, { exact: true }).count().then(count => count > 0).catch(() => false);
+  const promptVisible = await page.getByText(prompt, { exact: true }).count().then(count => count > 0).catch(() => false);
   const result = {
     status: conversationCreated && promptVisible ? 'PASS' : 'FAIL',
     tested_at: new Date().toISOString(),
     browser_reused: started.reused,
+    host_health: 'PASS',
+    authentication: existingAuth,
     ordinary_conversation_created: conversationCreated,
     fixed_prompt_submitted: promptVisible,
+    conversation_url: conversationCreated ? page.url() : null,
     assistant_output_accessed: false,
     profile_path: PROFILE_PATH
   };
@@ -458,7 +468,8 @@ async function main() {
   if (ACTION === 'status') return reportStatus();
   return withControllerLock(async () => {
     if (ACTION === 'start' || ACTION === 'open') return openChat();
-    if (ACTION === 'send-test') return sendFixedPrompt();
+    if (ACTION === 'send-test') return submitPrompt(FIXED_PROMPT);
+    if (ACTION === 'dispatch') return submitPrompt(issueDispatchPrompt());
     if (ACTION === 'stop') return stopBrowser();
     if (ACTION === 'checkpoint') return createCheckpoint();
     return 1;

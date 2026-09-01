@@ -10,7 +10,8 @@
     "host:start": "node persistent-host.mjs start",
     "host:status": "node persistent-host.mjs status",
     "host:stop": "node persistent-host.mjs stop",
-    "host:send-test": "node persistent-host.mjs send-test"
+    "host:send-test": "node persistent-host.mjs send-test",
+    "host:dispatch": "node persistent-host.mjs dispatch"
   },
   "dependencies": {
     "playwright-core": "latest"

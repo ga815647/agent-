@@ -3,6 +3,20 @@ name: Subchat Bridge PoC
 on:
   issues:
     types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Existing issue that receives the execution status
+        required: true
+        type: string
+      prompt:
+        description: Payload to submit to a fresh ordinary ChatGPT conversation
+        required: true
+        type: string
+
+concurrency:
+  group: persistent-chatgpt-host-poc
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -10,7 +24,7 @@ permissions:
 
 jobs:
   bridge-poc:
-    if: startsWith(github.event.issue.title, 'SUBCHAT-POC')
+    if: github.event_name == 'issues' && startsWith(github.event.issue.title, 'SUBCHAT-POC')
     runs-on: ubuntu-latest
     steps:
       - name: Acknowledge dispatch
@@ -37,3 +51,110 @@ jobs:
               issue_number: context.issue.number,
               body: comment
             });
+
+  persistent-host-poc:
+    if: >-
+      (github.event_name == 'issues' &&
+       github.event.issue.title == 'SUBCHAT-HOST-POC' &&
+       github.actor == github.repository_owner) ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.actor == github.repository_owner)
+    runs-on: [self-hosted, windows, chatgpt-host]
+    timeout-minutes: 10
+    env:
+      SUBCHAT_HOST_ISSUE_NUMBER: ${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number }}
+      SUBCHAT_HOST_PROMPT: ${{ github.event_name == 'issues' && github.event.issue.body || inputs.prompt }}
+      SUBCHAT_HOST_RESULT_PATH: ${{ runner.temp }}\subchat-host-result.json
+    steps:
+      - name: Submit payload through the persistent ChatGPT host
+        id: execute
+        shell: powershell
+        continue-on-error: true
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $launcher = 'E:\CS\program\agent-\ordinary-chat-poc3b\persistent-host.ps1'
+          if (-not (Test-Path -LiteralPath $launcher)) {
+            throw "Persistent-host launcher not found: $launcher"
+          }
+
+          try {
+            $controllerOutput = & $launcher dispatch 2>&1 | Out-String
+            $controllerExit = $LASTEXITCODE
+            [IO.File]::WriteAllText(
+              $env:SUBCHAT_HOST_RESULT_PATH,
+              $controllerOutput.Trim(),
+              [Text.UTF8Encoding]::new($false)
+            )
+            if ($controllerExit -ne 0) { exit $controllerExit }
+          }
+          catch {
+            $fallback = [ordered]@{
+              status = 'ERROR'
+              host_health = 'FAIL'
+              authentication = 'UNKNOWN'
+              ordinary_conversation_created = $false
+              fixed_prompt_submitted = $false
+              conversation_url = $null
+              assistant_output_accessed = $false
+            } | ConvertTo-Json
+            [IO.File]::WriteAllText(
+              $env:SUBCHAT_HOST_RESULT_PATH,
+              $fallback,
+              [Text.UTF8Encoding]::new($false)
+            )
+            exit 1
+          }
+
+      - name: Return execution status to the issue
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const issueNumber = Number(process.env.SUBCHAT_HOST_ISSUE_NUMBER);
+            if (!Number.isInteger(issueNumber) || issueNumber < 1) {
+              core.setFailed('Invalid originating issue number.');
+              return;
+            }
+
+            let result;
+            try {
+              result = JSON.parse(fs.readFileSync(process.env.SUBCHAT_HOST_RESULT_PATH, 'utf8'));
+            } catch {
+              result = {
+                status: 'ERROR',
+                host_health: 'FAIL',
+                authentication: 'UNKNOWN',
+                ordinary_conversation_created: false,
+                fixed_prompt_submitted: false,
+                conversation_url: null,
+                assistant_output_accessed: false
+              };
+            }
+
+            const passed = result.status === 'PASS' &&
+              result.authentication === 'AUTHENTICATED' &&
+              result.ordinary_conversation_created === true &&
+              result.fixed_prompt_submitted === true &&
+              result.assistant_output_accessed === false;
+            const comment = [
+              'SUBCHAT_HOST_ACK',
+              '',
+              `status: ${passed ? 'PASS' : 'FAIL'}`,
+              `issue: #${issueNumber}`,
+              `run_id: ${context.runId}`,
+              `host_health: ${result.host_health || 'UNKNOWN'}`,
+              `auth_state: ${result.authentication || 'UNKNOWN'}`,
+              `conversation_creation: ${result.ordinary_conversation_created === true ? 'PASS' : 'FAIL'}`,
+              `prompt_submission: ${result.fixed_prompt_submitted === true ? 'PASS' : 'FAIL'}`,
+              `conversation_url: ${result.conversation_url || 'NOT_AVAILABLE'}`,
+              `assistant_output_accessed: ${result.assistant_output_accessed === true ? 'true' : 'false'}`
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: comment
+            });
+            if (!passed) core.setFailed('Persistent ChatGPT host execution failed.');
