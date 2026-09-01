@@ -8,6 +8,7 @@ import hashlib
 import os
 import re
 import runpy
+import shutil
 import subprocess
 import sys
 import time
@@ -92,8 +93,10 @@ def run_stage(mode: str, case_id: str, output_dir: Path, brake_file: Path | None
 
     output_dir.mkdir(parents=True, exist_ok=True)
     work = Path(f"/tmp/harness-poc-01-{mode}-{case_id}")
+    if work.exists():
+        shutil.rmtree(work)
     work.mkdir(parents=True, exist_ok=True)
-    # Empty repo: Codex gets a normal trusted execution root but no project/repo context.
+    # Empty repo: Codex gets a normal execution root but no project/repo context.
     subprocess.run(
         ["git", "init", "-q"],
         cwd=work,
@@ -101,9 +104,8 @@ def run_stage(mode: str, case_id: str, output_dir: Path, brake_file: Path | None
         stderr=subprocess.DEVNULL,
         check=True,
     )
-    prompt_path = work / "prompt.txt"
     result_path = work / "result.txt"
-    prompt_path.write_text(prompt, encoding="utf-8")
+    (work / "prompt.txt").write_text(prompt, encoding="utf-8")
 
     cmd = [
         "codex",
@@ -119,18 +121,31 @@ def run_stage(mode: str, case_id: str, output_dir: Path, brake_file: Path | None
         str(result_path),
         "-",
     ]
-    started = time.perf_counter_ns()
-    proc = subprocess.run(
-        cmd,
-        input=prompt,
-        text=True,
-        cwd=work,
-        env=os.environ.copy(),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    elapsed_ms = (time.perf_counter_ns() - started) // 1_000_000
+
+    # During the model call, make the checked-out repository and all prior stage
+    # artifacts non-traversable. The only readable experiment content is the
+    # isolated /tmp workdir containing this stage's exact prompt.
+    workspace = Path(os.environ["GITHUB_WORKSPACE"]).resolve() if os.environ.get("GITHUB_WORKSPACE") else None
+    workspace_mode = None
+    if workspace is not None:
+        workspace_mode = workspace.stat().st_mode & 0o777
+        workspace.chmod(0)
+    try:
+        started = time.perf_counter_ns()
+        proc = subprocess.run(
+            cmd,
+            input=prompt,
+            text=True,
+            cwd=work,
+            env=os.environ.copy(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        elapsed_ms = (time.perf_counter_ns() - started) // 1_000_000
+    finally:
+        if workspace is not None and workspace_mode is not None:
+            workspace.chmod(workspace_mode)
 
     (output_dir / "prompt.txt").write_text(prompt, encoding="utf-8")
     (output_dir / "stdout.log").write_text(proc.stdout, encoding="utf-8")
@@ -142,7 +157,6 @@ def run_stage(mode: str, case_id: str, output_dir: Path, brake_file: Path | None
     (output_dir / "token_status.txt").write_text(status, encoding="utf-8")
 
     if proc.returncode != 0 or not result_path.exists():
-        # Auth is never printed by Codex here; expose only CLI/model diagnostics.
         if proc.stdout:
             print(proc.stdout)
         if proc.stderr:
@@ -152,6 +166,7 @@ def run_stage(mode: str, case_id: str, output_dir: Path, brake_file: Path | None
     if not result:
         raise SystemExit(f"Codex {mode} case {case_id} returned empty result")
     (output_dir / "result.txt").write_text(result + "\n", encoding="utf-8")
+    shutil.rmtree(work)
 
 
 def read(root: Path, stage: str, case_id: str, name: str) -> str:
@@ -184,7 +199,7 @@ def build_report(root: Path, run_id: str, run_sha: str, out_dir: Path) -> None:
         "visibility_DIRECT=normal reply instruction + exact original checkpoint conversation only",
         "visibility_B1=fresh frame-check instruction + exact original checkpoint conversation only",
         "visibility_B2=natural reply instruction + exact original checkpoint conversation + exact B1 output only",
-        "topology=B1 and DIRECT are separate matrix jobs; SYNTHESIS needs only brake and downloads only the matching brake artifact",
+        "filesystem_isolation=workspace chmod 000 during every Codex call; each call runs in a newly-created empty /tmp git repo; stage workdir removed after success",
         "",
     ]
     key = ["case\tcandidate_x\tcandidate_y"]
@@ -204,7 +219,6 @@ def build_report(root: Path, run_id: str, run_sha: str, out_dir: Path) -> None:
         sp_ok = sp == synth_prompt(case, brake)
         provenance_ok &= dp_ok and bp_ok and sp_ok
 
-        # Deterministic per-run permutation; mapping stays out of the blind issue body.
         swap = int(hashlib.sha256(f"{run_id}:{case_id}".encode()).hexdigest(), 16) & 1
         if swap:
             x, y = synth, direct
