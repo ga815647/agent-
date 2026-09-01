@@ -2,6 +2,8 @@
 
 Status: LOCKED BEFORE ANY L0 BEHAVIORAL OUTPUT
 
+Pre-run mechanical correction: an earlier prereg commit (`afb91eec3bad1d1a0ad0c307dcb38d3975bd63bc`) incorrectly placed the compiled **blob SHA** in a GitHub `ref:` field. No L0 behavioral output had been produced. This version corrects only that file-resolution type error by pinning the treatment path to commit `7250240ac95d9c3d28fccaa2fc166db7c78368e2`; the compiled blob SHA, cases, rubric, and acceptance rule are unchanged. This commit supersedes the earlier prereg commit.
+
 This experiment tests transport/file-resolution equivalence only. It does not modify frozen v0 or the v0.1 candidate and does not test whether the Harness cognitive rules are minimal.
 
 ## Fixed sources
@@ -18,7 +20,7 @@ Frozen source blobs:
 - SYNTHESIZE: `2325a6368b98c3dcb589985592357499a0f6898a`
 
 Compiled treatment artifact:
-- branch: `exp/ech-lightweight-v0`
+- treatment commit ref: `7250240ac95d9c3d28fccaa2fc166db7c78368e2`
 - path: `external-cognitive-harness-lightweight-v0/COMPILED.md`
 - compiled blob SHA: `34baa153501215fe4cdb54ecf3c45a758c35372e`
 
@@ -68,7 +70,7 @@ Use one fresh chat per case.
 回答前先透過 GitHub 讀取並完整遵循：
 
 repo: ga815647/agent-
-ref: 34baa153501215fe4cdb54ecf3c45a758c35372e
+ref: 7250240ac95d9c3d28fccaa2fc166db7c78368e2
 path: external-cognitive-harness-lightweight-v0/COMPILED.md
 
 把 COMPILED.md 視為本次 invocation 唯一 Harness 外部讀取；完整依其中 file-resolution contract 與 embedded cognitive rules 執行。不要另外讀 ENTRY / FRAME / REVIEW / SYNTHESIZE。中間 packet 不展示，只輸出最後自然回答。
