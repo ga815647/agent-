@@ -33,7 +33,7 @@ Never prefetch REVIEW or SYNTHESIZE before the FRAME-stage decision is complete.
 
 Every Chat Dev assistant final response must end with this exact line:
 
-`[CHAT_DEV_HARNESS_LATCH｜NEXT TURN: run active Chat Dev Harness before any substantive response. BEFORE FINAL: verify this-turn Harness ingress completed + re-append this latch.]`
+`[HARNESS LATCH｜NEXT: run first. FINAL: verify + re-append.]`
 
 Purpose: keep both the next-turn ingress requirement and the current-turn pre-final self-check at the freshest edge of the conversation context, reducing long-context / conversation-momentum misses.
 
