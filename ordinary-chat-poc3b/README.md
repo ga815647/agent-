@@ -69,15 +69,15 @@ The adapted `subchat-bridge-poc.yml` supports owner-only, exact-title `SUBCHAT-H
 
 ### Soft rate-limit resilience
 
-The controller recognizes the ChatGPT `太多要求` / `Too many requests` modal only within dialog/alert/modal UI. During one dispatch it may click one bounded acknowledgment (`知道了`, `OK`, or an equivalent supported label) and wait briefly for the composer to recover. If recovery succeeds, that same dispatch continues once; it does not enqueue or submit a second request.
+The controller recognizes the ChatGPT `太多要求` / `Too many requests` modal only within dialog/alert/modal UI. During one dispatch it may dismiss the recognized acknowledgment (`知道了`, `確定`, `OK`, or an equivalent supported label) each time it blocks progress, then verify that the composer, Project route, conversation route, or prompt-submission evidence recovers. Repeated notices are not a blocking condition by count alone. The existing bounded operation deadline remains authoritative, and recovery continues only within the same dispatch; it does not enqueue or submit a second job.
 
-The controller hard-stops with `status: RATE_LIMITED` when the notice reappears, cannot be dismissed, does not restore the composer, or appears after prompt submission. A hard limit creates this local runtime file outside git:
+The controller enters internal `RATE_LIMIT_BLOCKED` state (external `status: RATE_LIMITED`) only when the modal cannot be dismissed, stays visible, useful UI progress cannot be restored, prompt submission remains impossible, or the bounded progress deadline expires. Only this actually blocked state creates the following local runtime file outside git:
 
 ```text
 %LOCALAPPDATA%\ChatDev\PersistentChatHost\rate-limit-state.json
 ```
 
-The default cooldown is ten minutes. A later dispatch during an active cooldown fails fast without navigating, dismissing, or submitting. There is no retry loop, reload loop, or attempt to bypass ChatGPT limits. The Issue status distinguishes `RATE_LIMITED` from authentication failure and never reads assistant output.
+The default cooldown is ten minutes. A later dispatch during an active cooldown fails fast without navigating, dismissing, or submitting. Repeated-but-recovered notices do not create cooldown. There is no unbounded dismissal loop, reload loop, new job, or attempt to bypass ChatGPT limits. The Issue status reports the notice as `RECOVERED` or `BLOCKED`, distinguishes `RATE_LIMITED` from authentication failure, and never reads assistant output.
 
 Run deterministic policy fixtures without contacting ChatGPT:
 

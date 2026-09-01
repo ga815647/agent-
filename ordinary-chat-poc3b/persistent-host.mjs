@@ -6,7 +6,7 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
-  buildHardRateLimitState,
+  buildRateLimitBlockedState,
   classifyRateLimitCopy,
   cooldownDecision,
   createRateLimitTracker,
@@ -416,37 +416,39 @@ async function firstPageWithRateLimit(context) {
   return null;
 }
 
-function rateLimitAdapter(page) {
+function rateLimitAdapter(page, { deadline = Date.now() + 7000, progressProbe = () => usableComposer(page) } = {}) {
   return {
     detect: () => detectRateLimitModal(page),
     dismiss: async notice => notice.dismissButton.click(),
     waitForRecovery: async notice => {
-      await notice.modal.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+      const hideTimeout = Math.max(1, Math.min(3000, deadline - Date.now()));
+      await notice.modal.waitFor({ state: 'hidden', timeout: hideTimeout }).catch(() => {});
       if (await notice.modal.isVisible().catch(() => false)) {
-        return { composerUsable: false, modalVisible: true };
+        return { recovered: false, persistentModal: true };
       }
-      const deadline = Date.now() + 7000;
-      while (Date.now() < deadline) {
-        if (await detectRateLimitModal(page)) return { composerUsable: false, modalVisible: true };
-        if (await usableComposer(page)) return { composerUsable: true, modalVisible: false };
+      const recoveryDeadline = Math.min(deadline, Date.now() + 7000);
+      while (Date.now() < recoveryDeadline) {
+        const nextNotice = await detectRateLimitModal(page);
+        if (nextNotice) return { recovered: false, nextNotice };
+        if (await progressProbe()) return { recovered: true };
         await new Promise(resolve => setTimeout(resolve, 250));
       }
-      return { composerUsable: false, modalVisible: false };
+      return { recovered: false };
     }
   };
 }
 
-class HardRateLimitError extends Error {
+class RateLimitBlockedError extends Error {
   constructor(reason) {
     super(reason);
-    this.name = 'HardRateLimitError';
+    this.name = 'RateLimitBlockedError';
     this.reason = reason;
   }
 }
 
-async function resolveSoftRateLimit(page, tracker, initialNotice = null) {
-  const outcome = await handleSoftRateLimitNotice(tracker, rateLimitAdapter(page), initialNotice);
-  if (outcome.kind === 'HARD') throw new HardRateLimitError(outcome.reason);
+async function resolveSoftRateLimit(page, tracker, initialNotice = null, options = {}) {
+  const outcome = await handleSoftRateLimitNotice(tracker, rateLimitAdapter(page, options), initialNotice);
+  if (outcome.kind === 'BLOCKED') throw new RateLimitBlockedError(outcome.reason);
   return outcome;
 }
 
@@ -459,7 +461,7 @@ async function waitForComposerWithRateLimit(page, tracker, timeoutMs = 20000) {
     }
     const notice = await detectRateLimitModal(page);
     if (notice) {
-      await resolveSoftRateLimit(page, tracker, notice);
+      await resolveSoftRateLimit(page, tracker, notice, { deadline });
     }
     const composer = await usableComposer(page);
     if (composer) return composer;
@@ -473,7 +475,7 @@ async function waitForAuthenticationWithRateLimit(page, tracker, timeoutMs = 200
   let auth = 'UNKNOWN';
   while (Date.now() < deadline) {
     const notice = await detectRateLimitModal(page);
-    if (notice) await resolveSoftRateLimit(page, tracker, notice);
+    if (notice) await resolveSoftRateLimit(page, tracker, notice, { deadline });
     auth = await authenticationState(page);
     if (auth === 'AUTHENTICATED' || auth === 'LOGIN_REQUIRED') return auth;
     await new Promise(resolve => setTimeout(resolve, 250));
@@ -595,8 +597,11 @@ function projectRoute(workerProjectUrl) {
 function rateLimitResultFields(tracker) {
   return {
     rate_limit_notice_seen: tracker.noticeSeen,
-    rate_limit_dismissal_attempted: tracker.dismissAttempted === true,
+    rate_limit_notice_count: tracker.noticeCount || 0,
+    rate_limit_dismissal_attempted: (tracker.dismissalAttempts || 0) > 0,
+    rate_limit_dismissal_count: tracker.dismissalCount || 0,
     rate_limit_notice_dismissed: tracker.noticeDismissed,
+    rate_limit_recovery_count: tracker.recoveryCount || 0,
     rate_limit_recovered: tracker.recovered,
     assistant_output_accessed: false
   };
@@ -611,8 +616,11 @@ function writeResult(result, exitCode) {
 function activeCooldownResult(cooldown, { workerProject }) {
   const tracker = {
     noticeSeen: cooldown.state?.rate_limit_notice_seen === true,
-    dismissAttempted: cooldown.state?.rate_limit_dismissal_attempted === true,
+    noticeCount: cooldown.state?.rate_limit_notice_count || 0,
+    dismissalAttempts: cooldown.state?.rate_limit_dismissal_count || (cooldown.state?.rate_limit_dismissal_attempted === true ? 1 : 0),
+    dismissalCount: cooldown.state?.rate_limit_dismissal_count || (cooldown.state?.rate_limit_notice_dismissed === true ? 1 : 0),
     noticeDismissed: cooldown.state?.rate_limit_notice_dismissed === true,
+    recoveryCount: 0,
     recovered: false
   };
   return {
@@ -628,6 +636,7 @@ function activeCooldownResult(cooldown, { workerProject }) {
     fixed_prompt_submitted: false,
     conversation_url: null,
     ...rateLimitResultFields(tracker),
+    rate_limit_recovered: false,
     cooldown_active: true,
     retry_allowed_now: false,
     retry_after_seconds: cooldown.decision.retryAfterSeconds,
@@ -635,8 +644,8 @@ function activeCooldownResult(cooldown, { workerProject }) {
   };
 }
 
-function hardRateLimitResult({ reason, tracker, authentication, started, workerProject, projectLandingUsed }) {
-  const state = buildHardRateLimitState({
+function rateLimitBlockedResult({ reason, tracker, authentication, started, workerProject, projectLandingUsed }) {
+  const state = buildRateLimitBlockedState({
     cooldownMs: RATE_LIMIT_COOLDOWN_MS,
     reason,
     authentication,
@@ -656,11 +665,54 @@ function hardRateLimitResult({ reason, tracker, authentication, started, workerP
     fixed_prompt_submitted: false,
     conversation_url: null,
     ...rateLimitResultFields(tracker),
+    rate_limit_recovered: false,
     cooldown_active: true,
     retry_allowed_now: false,
     retry_after_seconds: Math.ceil(RATE_LIMIT_COOLDOWN_MS / 1000),
     profile_path: PROFILE_PATH
   };
+}
+
+async function conversationEvidence(page, prompt, { workerProject, expectedProjectRoute }) {
+  const conversationPath = new URL(page.url()).pathname;
+  const conversationCreated = workerProject
+    ? conversationPath.startsWith(`${expectedProjectRoute}/c/`) && /\/c\/[0-9a-f-]{20,}/i.test(conversationPath)
+    : /\/c\/[0-9a-f-]{20,}/i.test(conversationPath);
+  const promptVisible = await page.getByText(prompt, { exact: true }).count().then(count => count > 0).catch(() => false);
+  return { conversationCreated, promptVisible };
+}
+
+async function submitComposerWithRateLimit(page, composer, prompt, tracker, deadline) {
+  let currentComposer = composer;
+  while (Date.now() < deadline) {
+    const notice = await detectRateLimitModal(page);
+    if (notice) {
+      await resolveSoftRateLimit(page, tracker, notice, { deadline });
+      currentComposer = await usableComposer(page);
+      if (!currentComposer) throw new RateLimitBlockedError('RATE_LIMIT_RECOVERY_TIMEOUT');
+      await currentComposer.fill(prompt);
+    }
+
+    const send = await firstVisible(page, [
+      'button[data-testid="send-button"]',
+      'button[aria-label="Send prompt"]',
+      'button[aria-label="Send message"]',
+      'button[aria-label*="傳送"]'
+    ]);
+    try {
+      if (send) await send.click();
+      else await currentComposer.press('Enter');
+      return;
+    } catch (error) {
+      const blockingNotice = await detectRateLimitModal(page);
+      if (!blockingNotice) throw error;
+      await resolveSoftRateLimit(page, tracker, blockingNotice, { deadline });
+      currentComposer = await usableComposer(page);
+      if (!currentComposer) throw new RateLimitBlockedError('RATE_LIMIT_RECOVERY_TIMEOUT');
+      await currentComposer.fill(prompt);
+    }
+  }
+  throw new RateLimitBlockedError('RATE_LIMIT_PROGRESS_DEADLINE_EXHAUSTED');
 }
 
 async function submitPrompt(prompt, { workerProject = false } = {}) {
@@ -714,50 +766,41 @@ async function submitPrompt(prompt, { workerProject = false } = {}) {
       await page.keyboard.insertText(prompt);
     }
 
+    const submissionDeadline = Date.now() + 60000;
     const preSubmissionNotice = await detectRateLimitModal(page);
     if (preSubmissionNotice) {
-      await resolveSoftRateLimit(page, tracker, preSubmissionNotice);
+      await resolveSoftRateLimit(page, tracker, preSubmissionNotice, { deadline: submissionDeadline });
       composer = await usableComposer(page);
-      if (!composer) throw new HardRateLimitError('COMPOSER_NOT_RECOVERED');
+      if (!composer) throw new RateLimitBlockedError('RATE_LIMIT_RECOVERY_TIMEOUT');
       await composer.fill(prompt);
     }
 
-    const send = await firstVisible(page, [
-      'button[data-testid="send-button"]',
-      'button[aria-label="Send prompt"]',
-      'button[aria-label="Send message"]',
-      'button[aria-label*="傳送"]'
-    ]);
-    try {
-      if (send) await send.click();
-      else await composer.press('Enter');
-    } catch (error) {
-      if (await detectRateLimitModal(page)) {
-        tracker.noticeSeen = true;
-        tracker.noticeCount += 1;
-        throw new HardRateLimitError('SUBMISSION_RATE_LIMIT');
-      }
-      throw error;
-    }
-
     const expectedProjectRoute = workerProject ? projectRoute(targetUrl) : null;
+    await submitComposerWithRateLimit(page, composer, prompt, tracker, submissionDeadline);
+
     let conversationCreated = false;
     let promptVisible = false;
-    const submissionDeadline = Date.now() + 60000;
+    let postSubmissionNoticeSeen = false;
     while (Date.now() < submissionDeadline) {
       const submissionNotice = await detectRateLimitModal(page);
       if (submissionNotice) {
-        tracker.noticeSeen = true;
-        tracker.noticeCount += 1;
-        throw new HardRateLimitError('SUBMISSION_RATE_LIMIT');
+        postSubmissionNoticeSeen = true;
+        await resolveSoftRateLimit(page, tracker, submissionNotice, {
+          deadline: submissionDeadline,
+          progressProbe: async () => {
+            const evidence = await conversationEvidence(page, prompt, { workerProject, expectedProjectRoute });
+            return (evidence.conversationCreated && evidence.promptVisible) || !!await usableComposer(page);
+          }
+        });
       }
-      const conversationPath = new URL(page.url()).pathname;
-      conversationCreated = workerProject
-        ? conversationPath.startsWith(`${expectedProjectRoute}/c/`) && /\/c\/[0-9a-f-]{20,}/i.test(conversationPath)
-        : /\/c\/[0-9a-f-]{20,}/i.test(conversationPath);
-      promptVisible = await page.getByText(prompt, { exact: true }).count().then(count => count > 0).catch(() => false);
+      const evidence = await conversationEvidence(page, prompt, { workerProject, expectedProjectRoute });
+      conversationCreated = evidence.conversationCreated;
+      promptVisible = evidence.promptVisible;
       if (conversationCreated && promptVisible) break;
       await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    if ((!conversationCreated || !promptVisible) && postSubmissionNoticeSeen) {
+      throw new RateLimitBlockedError('RATE_LIMIT_PROGRESS_DEADLINE_EXHAUSTED');
     }
 
     const result = {
@@ -779,8 +822,8 @@ async function submitPrompt(prompt, { workerProject = false } = {}) {
     };
     return writeResult(result, result.status === 'PASS' ? 0 : 5);
   } catch (error) {
-    if (error instanceof HardRateLimitError) {
-      return writeResult(hardRateLimitResult({
+    if (error instanceof RateLimitBlockedError) {
+      return writeResult(rateLimitBlockedResult({
         reason: error.reason,
         tracker,
         authentication: existingAuth,

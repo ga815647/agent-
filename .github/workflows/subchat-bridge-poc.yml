@@ -140,6 +140,7 @@ jobs:
                 fixed_prompt_submitted: false,
                 conversation_url: null,
                 rate_limit_notice_seen: false,
+                rate_limit_dismissal_count: 0,
                 rate_limit_notice_dismissed: false,
                 rate_limit_recovered: false,
                 retry_allowed_now: false,
@@ -157,7 +158,7 @@ jobs:
               result.assistant_output_accessed === false;
             const rateLimited = result.status === 'RATE_LIMITED';
             const rateLimitNotice = rateLimited
-              ? 'HARD_LIMIT'
+              ? 'BLOCKED'
               : result.rate_limit_notice_seen === true && result.rate_limit_recovered === true
                 ? 'RECOVERED'
                 : 'NOT_SEEN';
@@ -176,6 +177,7 @@ jobs:
               `prompt_submission: ${result.fixed_prompt_submitted === true ? 'PASS' : 'FAIL'}`,
               `conversation_url: ${result.conversation_url || 'NOT_AVAILABLE'}`,
               `rate_limit_notice: ${rateLimitNotice}`,
+              `rate_limit_dismissal_count: ${Number.isInteger(result.rate_limit_dismissal_count) ? result.rate_limit_dismissal_count : 0}`,
               `retry_allowed_now: ${result.retry_allowed_now === true ? 'true' : 'false'}`,
               ...(Number.isInteger(result.retry_after_seconds) ? [`retry_after_seconds: ${result.retry_after_seconds}`] : []),
               `assistant_output_accessed: ${result.assistant_output_accessed === true ? 'true' : 'false'}`
@@ -189,6 +191,6 @@ jobs:
             });
             if (!passed) {
               core.setFailed(rateLimited
-                ? 'Persistent ChatGPT host is in a bounded rate-limit cooldown.'
+                ? 'Persistent ChatGPT host could not restore progress after the rate-limit UI notice.'
                 : 'Persistent ChatGPT host execution failed.');
             }

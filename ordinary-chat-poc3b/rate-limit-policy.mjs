@@ -23,56 +23,75 @@ export function createRateLimitTracker() {
   return {
     noticeSeen: false,
     noticeCount: 0,
-    dismissAttempted: false,
+    dismissalAttempts: 0,
+    dismissalCount: 0,
+    recoveryCount: 0,
     noticeDismissed: false,
     recovered: false
   };
 }
 
 export async function handleSoftRateLimitNotice(tracker, adapter, initialNotice = null) {
-  const notice = initialNotice || await adapter.detect();
+  let notice = initialNotice || await adapter.detect();
   if (!notice) return { kind: 'NONE' };
 
-  tracker.noticeSeen = true;
-  tracker.noticeCount += 1;
-  if (tracker.dismissAttempted) {
-    return { kind: 'HARD', reason: 'RATE_LIMIT_NOTICE_REPEATED' };
-  }
-  if (!notice.dismissible) {
-    return { kind: 'HARD', reason: 'RATE_LIMIT_NOTICE_NOT_DISMISSIBLE' };
+  while (notice) {
+    tracker.noticeSeen = true;
+    tracker.noticeCount += 1;
+    if (!notice.dismissible) {
+      return { kind: 'BLOCKED', reason: 'RATE_LIMIT_MODAL_NOT_DISMISSIBLE' };
+    }
+
+    tracker.dismissalAttempts += 1;
+    try {
+      await adapter.dismiss(notice);
+      tracker.dismissalCount += 1;
+      tracker.noticeDismissed = true;
+    } catch {
+      return { kind: 'BLOCKED', reason: 'RATE_LIMIT_DISMISS_FAILED' };
+    }
+
+    const recovery = await adapter.waitForRecovery(notice);
+    if (recovery.persistentModal) {
+      return { kind: 'BLOCKED', reason: 'RATE_LIMIT_MODAL_PERSISTENT' };
+    }
+    if (recovery.recovered) {
+      tracker.recoveryCount += 1;
+      tracker.recovered = true;
+      return { kind: 'RECOVERED' };
+    }
+    if (recovery.nextNotice) {
+      notice = recovery.nextNotice;
+      continue;
+    }
+    return { kind: 'BLOCKED', reason: 'RATE_LIMIT_RECOVERY_TIMEOUT' };
   }
 
-  tracker.dismissAttempted = true;
-  try {
-    await adapter.dismiss(notice);
-    tracker.noticeDismissed = true;
-  } catch {
-    return { kind: 'HARD', reason: 'RATE_LIMIT_DISMISS_FAILED' };
-  }
-  const recovery = await adapter.waitForRecovery(notice);
-  if (recovery.modalVisible) {
-    return { kind: 'HARD', reason: 'RATE_LIMIT_NOTICE_REPEATED' };
-  }
-  if (!recovery.composerUsable) {
-    return { kind: 'HARD', reason: 'COMPOSER_NOT_RECOVERED' };
-  }
-
-  tracker.recovered = true;
-  return { kind: 'RECOVERED' };
+  return { kind: 'BLOCKED', reason: 'RATE_LIMIT_RECOVERY_TIMEOUT' };
 }
 
-export function buildHardRateLimitState({ now = Date.now(), cooldownMs = DEFAULT_RATE_LIMIT_COOLDOWN_MS, reason, authentication = 'UNKNOWN', tracker }) {
+export function buildRateLimitBlockedState({ now = Date.now(), cooldownMs = DEFAULT_RATE_LIMIT_COOLDOWN_MS, reason, authentication = 'UNKNOWN', tracker }) {
   return {
     status: 'RATE_LIMITED',
+    classification: 'RATE_LIMIT_BLOCKED',
     detected_at: new Date(now).toISOString(),
     cooldown_until: new Date(now + cooldownMs).toISOString(),
     reason,
     authentication,
     rate_limit_notice_seen: tracker?.noticeSeen === true,
-    rate_limit_dismissal_attempted: tracker?.dismissAttempted === true,
+    rate_limit_notice_count: tracker?.noticeCount || 0,
+    rate_limit_dismissal_attempted: (tracker?.dismissalAttempts || 0) > 0,
+    rate_limit_dismissal_count: tracker?.dismissalCount || 0,
     rate_limit_notice_dismissed: tracker?.noticeDismissed === true,
+    rate_limit_recovered: false,
     retry_allowed_now: false
   };
+}
+
+export function cooldownStateForOutcome(outcome, options) {
+  return outcome?.kind === 'BLOCKED'
+    ? buildRateLimitBlockedState({ ...options, reason: outcome.reason })
+    : null;
 }
 
 export function cooldownDecision(state, now = Date.now()) {
