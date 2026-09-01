@@ -468,6 +468,19 @@ async function waitForComposerWithRateLimit(page, tracker, timeoutMs = 20000) {
   return null;
 }
 
+async function waitForAuthenticationWithRateLimit(page, tracker, timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs;
+  let auth = 'UNKNOWN';
+  while (Date.now() < deadline) {
+    const notice = await detectRateLimitModal(page);
+    if (notice) await resolveSoftRateLimit(page, tracker, notice);
+    auth = await authenticationState(page);
+    if (auth === 'AUTHENTICATED' || auth === 'LOGIN_REQUIRED') return auth;
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  return auth;
+}
+
 async function authenticationState(page) {
   if (!page || !page.url().includes('chatgpt.com')) return 'NOT_ON_CHATGPT';
   const login = await firstVisible(page, [
@@ -673,7 +686,7 @@ async function submitPrompt(prompt, { workerProject = false } = {}) {
     }
 
     const authenticatedPage = await chatPage(context);
-    existingAuth = await authenticationState(authenticatedPage);
+    existingAuth = await waitForAuthenticationWithRateLimit(authenticatedPage, tracker);
     if (existingAuth !== 'AUTHENTICATED') {
       throw new Error(`ChatGPT session is not authenticated (state: ${existingAuth}). Complete manual login first.`);
     }
