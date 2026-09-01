@@ -41,7 +41,23 @@ After `status` reports `AUTHENTICATED`, submit the fixed acceptance prompt in a 
 
 This command records only whether an ordinary `/c/...` conversation was created and whether the fixed user prompt was submitted. It does not retrieve, parse, or scrape assistant output.
 
-For the repo-scoped self-hosted Actions PoC, `dispatch` reads the issue payload only from the `SUBCHAT_HOST_PROMPT` environment variable. It returns execution metadata and the ordinary conversation URL, but never reads the assistant response:
+Worker dispatches use a machine-local ChatGPT Project target stored outside the repository:
+
+```text
+%LOCALAPPDATA%\ChatDev\PersistentChatHost\host-config.json
+```
+
+The config contract is a JSON object with one `worker_project_url` string. The URL must use HTTPS, hostname exactly `chatgpt.com`, and the ChatGPT Project route `/g/g-p-.../project`; credentials, ports, query strings, fragments, and non-Project paths are rejected. A malformed existing config causes dispatch to fail instead of falling back to ChatGPT root. Configure the private value without printing it:
+
+```powershell
+$env:CHATGPT_HOST_WORKER_PROJECT_URL = '<private ChatGPT Project URL>'
+.\persistent-host.ps1 set-worker-project
+Remove-Item Env:\CHATGPT_HOST_WORKER_PROJECT_URL
+```
+
+Root ChatGPT remains the target for `start`, `open`, `status`, and `send-test`, so authentication and recovery do not depend on a Project route. `dispatch` requires the local config, navigates directly to that Project landing page, and verifies the resulting Project conversation using navigation metadata. It does not use sidebar text or read assistant output.
+
+For the repo-scoped self-hosted Actions PoC, `dispatch` reads the issue payload only from the `SUBCHAT_HOST_PROMPT` environment variable. Project URLs and identifiers are redacted from its result metadata:
 
 ```powershell
 $env:SUBCHAT_HOST_PROMPT = 'Return exactly: ACTIONS_PERSISTENT_CHAT_001'
@@ -49,7 +65,7 @@ $env:SUBCHAT_HOST_PROMPT = 'Return exactly: ACTIONS_PERSISTENT_CHAT_001'
 Remove-Item Env:\SUBCHAT_HOST_PROMPT
 ```
 
-The adapted `subchat-bridge-poc.yml` supports owner-only `SUBCHAT-HOST-POC` issue events and pre-merge `workflow_dispatch` tests. GitHub only activates the `issues` event version stored on the default branch, so automatic Issue-to-host routing remains inactive until the workflow change is accepted onto the default branch. Branch-ref manual dispatch is evidence for runner/controller execution only; it is not evidence that the Issue event triggered the host job.
+The adapted `subchat-bridge-poc.yml` supports owner-only, exact-title `SUBCHAT-HOST-POC` issue events and optional diagnostic `workflow_dispatch` tests. Automatic Issue dispatch is active from the default branch and is routed exclusively to the labeled persistent Windows host.
 
 Before a reboot, create a non-secret checkpoint and close Chrome cleanly:
 

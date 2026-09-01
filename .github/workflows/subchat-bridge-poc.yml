@@ -94,6 +94,8 @@ jobs:
               host_health = 'FAIL'
               authentication = 'UNKNOWN'
               ordinary_conversation_created = $false
+              project_landing_used = $false
+              project_conversation_created = $false
               fixed_prompt_submitted = $false
               conversation_url = $null
               assistant_output_accessed = $false
@@ -129,6 +131,8 @@ jobs:
                 host_health: 'FAIL',
                 authentication: 'UNKNOWN',
                 ordinary_conversation_created: false,
+                project_landing_used: false,
+                project_conversation_created: false,
                 fixed_prompt_submitted: false,
                 conversation_url: null,
                 assistant_output_accessed: false
@@ -137,6 +141,9 @@ jobs:
 
             const passed = result.status === 'PASS' &&
               result.authentication === 'AUTHENTICATED' &&
+              result.target_kind === 'PROJECT' &&
+              result.project_landing_used === true &&
+              result.project_conversation_created === true &&
               result.ordinary_conversation_created === true &&
               result.fixed_prompt_submitted === true &&
               result.assistant_output_accessed === false;
@@ -148,6 +155,9 @@ jobs:
               `run_id: ${context.runId}`,
               `host_health: ${result.host_health || 'UNKNOWN'}`,
               `auth_state: ${result.authentication || 'UNKNOWN'}`,
+              `target_kind: ${result.target_kind || 'UNKNOWN'}`,
+              `project_landing: ${result.project_landing_used === true ? 'PASS' : 'FAIL'}`,
+              `project_conversation: ${result.project_conversation_created === true ? 'PASS' : 'FAIL'}`,
               `conversation_creation: ${result.ordinary_conversation_created === true ? 'PASS' : 'FAIL'}`,
               `prompt_submission: ${result.fixed_prompt_submitted === true ? 'PASS' : 'FAIL'}`,
               `conversation_url: ${result.conversation_url || 'NOT_AVAILABLE'}`,

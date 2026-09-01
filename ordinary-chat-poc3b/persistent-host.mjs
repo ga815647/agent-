@@ -17,10 +17,11 @@ const CDP_PORT = Number(process.env.CHATGPT_HOST_PORT || 9333);
 const CDP_BASE = `http://127.0.0.1:${CDP_PORT}`;
 const STATE_PATH = path.join(HOST_ROOT, 'host-state.json');
 const RESULT_PATH = path.join(HOST_ROOT, 'last-result.json');
+const CONFIG_PATH = path.join(HOST_ROOT, 'host-config.json');
 const OWNER_PATH = path.join(HOST_ROOT, 'profile-owner.json');
 const LOCK_PATH = path.join(HOST_ROOT, 'controller.lock');
 const ACTION = process.argv[2] || 'status';
-const VALID_ACTIONS = new Set(['start', 'open', 'status', 'stop', 'send-test', 'dispatch', 'checkpoint']);
+const VALID_ACTIONS = new Set(['start', 'open', 'status', 'stop', 'send-test', 'dispatch', 'checkpoint', 'set-worker-project']);
 
 function jsonOut(value) {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
@@ -61,6 +62,57 @@ function readJson(target) {
   } catch {
     return null;
   }
+}
+
+function validateWorkerProjectUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error('worker_project_url must be a non-empty string.');
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(value.trim());
+  } catch {
+    throw new Error('worker_project_url is not a valid URL.');
+  }
+
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'chatgpt.com' || parsed.port || parsed.username || parsed.password) {
+    throw new Error('worker_project_url must use HTTPS on exactly chatgpt.com with no credentials or custom port.');
+  }
+  if (parsed.search || parsed.hash) {
+    throw new Error('worker_project_url must not contain a query string or fragment.');
+  }
+  if (!/^\/g\/g-p-[a-z0-9-]+\/project\/?$/i.test(parsed.pathname)) {
+    throw new Error('worker_project_url must use the expected /g/g-p-.../project path.');
+  }
+  return parsed.href;
+}
+
+function readWorkerConfig({ required = false } = {}) {
+  if (!fs.existsSync(CONFIG_PATH)) {
+    if (required) throw new Error(`Worker project config is missing: ${CONFIG_PATH}`);
+    return null;
+  }
+
+  let config;
+  try {
+    config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+  } catch {
+    throw new Error('Worker project config exists but is not valid JSON.');
+  }
+  if (!config || Array.isArray(config) || typeof config !== 'object') {
+    throw new Error('Worker project config must be a JSON object.');
+  }
+  return {
+    workerProjectUrl: validateWorkerProjectUrl(config.worker_project_url)
+  };
+}
+
+function configureWorkerProject() {
+  const workerProjectUrl = validateWorkerProjectUrl(process.env.CHATGPT_HOST_WORKER_PROJECT_URL);
+  atomicWrite(CONFIG_PATH, { worker_project_url: workerProjectUrl });
+  jsonOut({ status: 'CONFIGURED', config_path: CONFIG_PATH, worker_project_target: 'PRIVATE_CHATGPT_PROJECT' });
+  return 0;
 }
 
 function processExists(pid) {
@@ -305,10 +357,10 @@ async function authenticationState(page) {
   return profile && composer ? 'AUTHENTICATED' : 'UNKNOWN';
 }
 
-async function chatPage(context, { create = false } = {}) {
+async function chatPage(context, { create = false, targetUrl = CHATGPT_URL } = {}) {
   if (create) {
     const page = await context.newPage();
-    await page.goto(CHATGPT_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
     return page;
   }
   let page = context.pages().find(candidate => candidate.url().includes('chatgpt.com'));
@@ -321,10 +373,24 @@ async function chatPage(context, { create = false } = {}) {
 
 async function reportStatus() {
   assertSafePaths();
+  let workerConfig = null;
+  let workerConfigError = null;
+  try {
+    workerConfig = readWorkerConfig();
+  } catch (error) {
+    workerConfigError = error.message;
+  }
+  const workerProjectStatus = workerConfigError ? 'INVALID' : (workerConfig ? 'CONFIGURED' : 'NOT_CONFIGURED');
   const profilePids = profileProcessIds();
   if (profilePids.length === 0 || !await cdpReady()) {
-    jsonOut({ status: 'STOPPED', profile_path: PROFILE_PATH, profile_exists: fs.existsSync(PROFILE_PATH) });
-    return 3;
+    jsonOut({
+      status: 'STOPPED',
+      profile_path: PROFILE_PATH,
+      profile_exists: fs.existsSync(PROFILE_PATH),
+      worker_project_config: workerProjectStatus,
+      ...(workerConfigError ? { worker_project_config_error: workerConfigError } : {})
+    });
+    return workerConfigError ? 6 : 3;
   }
   const { context } = await connectBrowser();
   const page = context.pages().find(candidate => candidate.url().includes('chatgpt.com')) || null;
@@ -334,8 +400,11 @@ async function reportStatus() {
     browser_pid: profilePids[0],
     profile_path: PROFILE_PATH,
     authentication: auth,
+    worker_project_config: workerProjectStatus,
+    ...(workerConfigError ? { worker_project_config_error: workerConfigError } : {}),
     ordinary_chat_surface: !!page && !/\/(?:work|codex)(?:\/|$)/i.test(new URL(page.url()).pathname)
   });
+  if (workerConfigError) return 6;
   return auth === 'AUTHENTICATED' ? 0 : 4;
 }
 
@@ -360,7 +429,14 @@ function issueDispatchPrompt() {
   return prompt.trim();
 }
 
-async function submitPrompt(prompt) {
+function projectRoute(workerProjectUrl) {
+  const pathname = new URL(workerProjectUrl).pathname.replace(/\/$/, '');
+  return pathname.slice(0, -'/project'.length);
+}
+
+async function submitPrompt(prompt, { workerProject = false } = {}) {
+  const workerConfig = workerProject ? readWorkerConfig({ required: true }) : null;
+  const targetUrl = workerConfig?.workerProjectUrl || CHATGPT_URL;
   const started = await ensureBrowserStarted();
   const { context } = await connectBrowser();
   const authenticatedPage = await chatPage(context);
@@ -369,10 +445,17 @@ async function submitPrompt(prompt) {
     throw new Error(`ChatGPT session is not authenticated (state: ${existingAuth}). Complete manual login first.`);
   }
 
-  const page = await chatPage(context, { create: true });
+  const page = await chatPage(context, { create: true, targetUrl });
   await page.bringToFront();
   if (/\/(?:work|codex)(?:\/|$)/i.test(new URL(page.url()).pathname)) {
     throw new Error('Refusing to submit on a Work/Codex surface.');
+  }
+
+  const targetPath = new URL(targetUrl).pathname.replace(/\/$/, '');
+  const landingPath = new URL(page.url()).pathname.replace(/\/$/, '');
+  const projectLandingUsed = workerProject ? landingPath === targetPath : null;
+  if (workerProject && !projectLandingUsed) {
+    throw new Error('Configured worker Project landing page did not remain on the expected ChatGPT Project route.');
   }
 
   let composer = null;
@@ -405,8 +488,16 @@ async function submitPrompt(prompt) {
   if (send) await send.click();
   else await composer.press('Enter');
 
-  await page.waitForURL(/\/c\/[0-9a-f-]{20,}/i, { timeout: 60000 }).catch(() => {});
-  const conversationCreated = /\/c\/[0-9a-f-]{20,}/i.test(new URL(page.url()).pathname);
+  const expectedProjectRoute = workerProject ? projectRoute(targetUrl) : null;
+  await page.waitForURL(url => {
+    const pathname = url.pathname;
+    if (workerProject) return pathname.startsWith(`${expectedProjectRoute}/c/`);
+    return /\/c\/[0-9a-f-]{20,}/i.test(pathname);
+  }, { timeout: 60000 }).catch(() => {});
+  const conversationPath = new URL(page.url()).pathname;
+  const conversationCreated = workerProject
+    ? conversationPath.startsWith(`${expectedProjectRoute}/c/`) && /\/c\/[0-9a-f-]{20,}/i.test(conversationPath)
+    : /\/c\/[0-9a-f-]{20,}/i.test(conversationPath);
   const promptVisible = await page.getByText(prompt, { exact: true }).count().then(count => count > 0).catch(() => false);
   const result = {
     status: conversationCreated && promptVisible ? 'PASS' : 'FAIL',
@@ -414,9 +505,12 @@ async function submitPrompt(prompt) {
     browser_reused: started.reused,
     host_health: 'PASS',
     authentication: existingAuth,
+    target_kind: workerProject ? 'PROJECT' : 'ROOT',
+    project_landing_used: projectLandingUsed,
+    project_conversation_created: workerProject ? conversationCreated : null,
     ordinary_conversation_created: conversationCreated,
     fixed_prompt_submitted: promptVisible,
-    conversation_url: conversationCreated ? page.url() : null,
+    conversation_url: conversationCreated ? (workerProject ? 'PRIVATE_PROJECT_CONVERSATION' : page.url()) : null,
     assistant_output_accessed: false,
     profile_path: PROFILE_PATH
   };
@@ -469,9 +563,10 @@ async function main() {
   return withControllerLock(async () => {
     if (ACTION === 'start' || ACTION === 'open') return openChat();
     if (ACTION === 'send-test') return submitPrompt(FIXED_PROMPT);
-    if (ACTION === 'dispatch') return submitPrompt(issueDispatchPrompt());
+    if (ACTION === 'dispatch') return submitPrompt(issueDispatchPrompt(), { workerProject: true });
     if (ACTION === 'stop') return stopBrowser();
     if (ACTION === 'checkpoint') return createCheckpoint();
+    if (ACTION === 'set-worker-project') return configureWorkerProject();
     return 1;
   });
 }

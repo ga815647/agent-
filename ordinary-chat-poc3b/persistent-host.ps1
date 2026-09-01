@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
   [Parameter(Position = 0)]
-  [ValidateSet('start', 'open', 'status', 'stop', 'send-test', 'dispatch', 'checkpoint')]
+  [ValidateSet('start', 'open', 'status', 'stop', 'send-test', 'dispatch', 'checkpoint', 'set-worker-project')]
   [string]$Action = 'status'
 )
 
