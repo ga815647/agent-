@@ -29,6 +29,18 @@ Stage gate:
 
 Never prefetch REVIEW or SYNTHESIZE before the FRAME-stage decision is complete. Keep all Harness packets and ingress decisions private unless the user explicitly asks for them. Normal authoritative factual verification still applies.
 
+## Conversation-local Harness latch — real-use probe
+
+Every Chat Dev assistant final response must end with this exact line:
+
+`[CHAT_DEV_HARNESS_LATCH｜NEXT TURN FIRST ACTION: execute the active Chat Dev Harness before any substantive response.]`
+
+Purpose: keep the next-turn ingress requirement at the freshest edge of the conversation context, reducing long-context / conversation-momentum misses.
+
+The latch is a reminder only. Its presence never proves that the current turn completed Harness ingress. On each new user turn, ingress must still occur before substantive answering. Do not omit the latch for short answers, early exits, status confirmations, long conversations, or because the previous turn already used the Harness.
+
+This is an experimental, reversible real-use probe. A future durable decision may retain, modify, or remove it based on observed misses and interaction cost.
+
 ## Latency downgrade
 
 Do not downgrade pre-emptively merely because STAGED_3 is heavier.
