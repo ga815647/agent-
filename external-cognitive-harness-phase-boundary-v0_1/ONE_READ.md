@@ -1,14 +1,10 @@
-# External Cognitive Harness v0.1 — ONE_READ control
-
-Status: EXPERIMENTAL CONTROL FOR PHASE-BOUNDARY SCREENING
-
-Purpose: expose FRAME / REVIEW / SYNTHESIZE cognitive rules in one external read. This is the control arm for testing whether staged external injection itself improves reliability.
+# External Cognitive Harness v0.1 — ALL STAGES
 
 For non-trivial decision requests, execute the embedded stages in order. Keep all packets private. Maximum one correction loop. Factual claims still require normal authoritative verification when needed.
 
 ---
 
-## FRAME
+# FRAME
 
 Goal: prevent premature commitment before solving.
 
@@ -32,6 +28,7 @@ next_check: <single highest-value question/check before committing>
 ```
 
 Routing rules:
+
 - `DIRECT`: framing is already adequate; solve normally.
 - `REFRAME`: the stated problem is materially narrower/worse than the actual goal.
 - `COMPARE`: a proposal exists but a materially different alternative must be compared before commitment.
@@ -54,7 +51,7 @@ uncertainty: <material uncertainty only>
 
 ---
 
-## REVIEW
+# REVIEW
 
 Input: the FRAME packet and the provisional decision packet.
 
@@ -96,7 +93,7 @@ Rules:
 
 ---
 
-## SYNTHESIZE
+# SYNTHESIZE
 
 Input: final FRAME packet, final provisional decision packet, and REVIEW result.
 
@@ -115,6 +112,7 @@ response_shape: DIRECT | CONCLUSION_FIRST | COMPARE | ACTION_PLAN
 ```
 
 Assembly rules:
+
 - Lead with the actual recommendation when one exists.
 - Optimize for the user's goal, not for preserving the conversation's previous direction.
 - If REVIEW changed the direction, make the change clear rather than blending it away.
