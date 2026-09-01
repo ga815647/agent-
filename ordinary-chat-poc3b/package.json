@@ -5,7 +5,12 @@
   "type": "module",
   "scripts": {
     "check": "node --check poc3b.mjs",
-    "run": "node poc3b.mjs"
+    "run": "node poc3b.mjs",
+    "host:check": "node --check persistent-host.mjs",
+    "host:start": "node persistent-host.mjs start",
+    "host:status": "node persistent-host.mjs status",
+    "host:stop": "node persistent-host.mjs stop",
+    "host:send-test": "node persistent-host.mjs send-test"
   },
   "dependencies": {
     "playwright-core": "latest"

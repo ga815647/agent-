@@ -1,0 +1,6 @@
+# Local browser/session state is credential material and must never enter Git.
+node_modules/
+ordinary-chat-poc3b/.persistent-host/
+ordinary-chat-poc3b/poc3b-result.json
+**/chrome-user-data/
+**/persistent-chatgpt-host/
