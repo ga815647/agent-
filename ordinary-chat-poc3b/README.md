@@ -49,6 +49,8 @@ $env:SUBCHAT_HOST_PROMPT = 'Return exactly: ACTIONS_PERSISTENT_CHAT_001'
 Remove-Item Env:\SUBCHAT_HOST_PROMPT
 ```
 
+The adapted `subchat-bridge-poc.yml` supports owner-only `SUBCHAT-HOST-POC` issue events and pre-merge `workflow_dispatch` tests. GitHub only activates the `issues` event version stored on the default branch, so automatic Issue-to-host routing remains inactive until the workflow change is accepted onto the default branch. Branch-ref manual dispatch is evidence for runner/controller execution only; it is not evidence that the Issue event triggered the host job.
+
 Before a reboot, create a non-secret checkpoint and close Chrome cleanly:
 
 ```powershell
