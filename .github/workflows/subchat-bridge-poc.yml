@@ -64,12 +64,13 @@ jobs:
     env:
       SUBCHAT_HOST_ISSUE_NUMBER: ${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number }}
       SUBCHAT_HOST_PROMPT: ${{ github.event_name == 'issues' && github.event.issue.body || inputs.prompt }}
-      SUBCHAT_HOST_RESULT_PATH: ${{ runner.temp }}\subchat-host-result.json
     steps:
       - name: Submit payload through the persistent ChatGPT host
         id: execute
         shell: powershell
         continue-on-error: true
+        env:
+          SUBCHAT_HOST_RESULT_PATH: ${{ runner.temp }}\subchat-host-result.json
         run: |
           $ErrorActionPreference = 'Stop'
           $launcher = 'E:\CS\program\agent-\ordinary-chat-poc3b\persistent-host.ps1'
@@ -108,6 +109,8 @@ jobs:
       - name: Return execution status to the issue
         if: always()
         uses: actions/github-script@v7
+        env:
+          SUBCHAT_HOST_RESULT_PATH: ${{ runner.temp }}\subchat-host-result.json
         with:
           script: |
             const fs = require('fs');
