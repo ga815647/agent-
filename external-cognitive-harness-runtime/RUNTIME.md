@@ -4,26 +4,30 @@ Status: ACTIVE DEFAULT — EXPERIMENTAL / REVERSIBLE
 Scope: Chat Dev project
 Priority: reliability over latency
 
-## Trigger
+## Mandatory ingress
 
-For any non-trivial request involving a decision, direction, prioritization, proposed solution, or consequential commitment, run the active Harness before answering.
+Every Chat Dev user request must enter the active Harness before answering. Do not decide outside the Harness that a request is too simple to need it.
 
-Simple factual lookup, mechanical transformation, short translation, and other low-judgment tasks may skip the Harness.
+Default ingress starts by fetching only `FRAME.md` from the pinned ref below.
 
-## Default runtime — STAGED_3
+After reading FRAME, `EARLY_EXIT_SAFE` is allowed only when the request is clearly low-judgment (for example: simple factual lookup, mechanical transformation, short translation, or straightforward status confirmation) and there is no material decision, direction, prioritization, proposed solution, commitment, framing risk, decision-controlling uncertainty, or conversation-momentum risk.
 
-Use exactly three external Harness fetches from the same pinned ref:
+If `EARLY_EXIT_SAFE`, answer normally without fetching REVIEW or SYNTHESIZE. If there is any material doubt about whether early exit is safe, continue the full staged path.
+
+## Default runtime — STAGED_3 with early exit
 
 Repository: `ga815647/agent-`
 Ref: `7fa7470fd85e05095e10095e792ed3a9134bb6a1`
 Path: `external-cognitive-harness-v0/`
 
 Stage gate:
-1. Fetch only `FRAME.md`. Apply it and form the private FRAME packet plus provisional decision packet. Do not fetch later stages before this is complete.
-2. Then fetch `REVIEW.md`. Apply it to the completed frame/provisional decision. If one correction is required, use the already-read REVIEW rules; do not fetch REVIEW again.
+1. Always fetch only `FRAME.md` first. Before fetching later stages, either:
+   - declare `EARLY_EXIT_SAFE` privately and answer directly; or
+   - apply FRAME fully and form the private FRAME packet plus provisional decision packet.
+2. If not early-exiting, then fetch `REVIEW.md`. Apply it to the completed frame/provisional decision. If one correction is required, use the already-read REVIEW rules; do not fetch REVIEW again.
 3. Then fetch `SYNTHESIZE.md` and produce the user-facing answer.
 
-Keep all Harness packets private unless the user explicitly asks for them. Normal authoritative factual verification still applies.
+Never prefetch REVIEW or SYNTHESIZE before the FRAME-stage decision is complete. Keep all Harness packets and ingress decisions private unless the user explicitly asks for them. Normal authoritative factual verification still applies.
 
 ## Latency downgrade
 
@@ -35,6 +39,8 @@ Repository: `ga815647/agent-`
 Ref: `c3968b98f089c6bcf680d4015422f070f1f829e8`
 Path: `external-cognitive-harness-phase-boundary-v0_1/ONE_READ.md`
 
+Mandatory ingress still applies after downgrade: every request must enter the selected Harness. Low-judgment requests may early-exit internally; do not restore an outside-the-Harness skip classifier.
+
 A request to make the downgrade global within Chat Dev must be explicit. Otherwise treat a speed complaint as local to the current conversation/task.
 
 `FAST.md` remains a lower-latency fallback/diagnostic candidate, not the default downgrade target. Use it only when explicitly selected or when a later durable runtime policy promotes it.
@@ -42,6 +48,8 @@ A request to make the downgrade global within Chat Dev must be explicit. Otherwi
 ## Evidence boundary
 
 The 2026-09-01 phase-boundary screen returned `NO_DETECTABLE_DIFFERENCE`: H1/H2/H3 were PASS in both ONE_READ and STAGED_3. Therefore STAGED_3 is the default because the user currently prioritizes reliability over latency, not because staged execution has been proven superior.
+
+Mandatory ingress + early exit is a runtime policy choice intended to reduce false-negative routing at the Harness boundary. It has not yet been separately validated as an efficacy improvement.
 
 Known hard/long-context failures and future real-use regressions should be used as discriminating evidence. Fresh-context isolation is a separate mechanism and is not implied by STAGED_3.
 
