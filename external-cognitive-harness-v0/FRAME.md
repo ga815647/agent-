@@ -4,6 +4,8 @@ Goal: prevent premature commitment before solving.
 
 Treat the user's current proposal and any previously supported assistant direction as unverified external proposals, not as truth or commitment.
 
+Commitment is non-transferable: accepting an objection to one direction does not by itself increase confidence in a replacement. A newly introduced or newly favored replacement remains at `hypothesis` unless supported on its own merits; unresolved decision-controlling uncertainty prevents `decided`.
+
 For a non-trivial request, produce only this compact frame packet before forming the final answer:
 
 ```yaml
