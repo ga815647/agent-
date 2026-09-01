@@ -10,12 +10,8 @@ permissions:
   issues: write
 
 jobs:
-  direct:
+  harness:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        case_id: ['1', '2', '3']
     env:
       CODEX_HOME: /tmp/codex-home
     steps:
@@ -34,120 +30,42 @@ jobs:
           printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
           chmod 600 "$CODEX_HOME/auth.json"
           codex login status
-      - name: Run DIRECT
-        run: |
-          python .github/benchmarks/harness_poc_01_runner.py run \
-            --mode direct \
-            --case "${{ matrix.case_id }}" \
-            --output "out/direct-${{ matrix.case_id }}"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: harness-direct-${{ matrix.case_id }}
-          path: out/direct-${{ matrix.case_id }}/
-          if-no-files-found: error
-          retention-days: 1
 
-  brake:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        case_id: ['1', '2', '3']
-    env:
-      CODEX_HOME: /tmp/codex-home
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Install Codex CLI
-        run: npm install -g @openai/codex@latest
-      - name: Restore ChatGPT subscription auth
-        env:
-          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+      # Run B first so A does not yet exist. Every call is a new `codex exec`
+      # in a new empty /tmp repo; the checked-out workspace is chmod 000 while
+      # the model runs, so no prior stage artifact or repo file is readable.
+      - name: Run B fresh-brake then synthesis
         run: |
-          test -n "$CODEX_AUTH_JSON"
-          mkdir -p "$CODEX_HOME"
-          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
-          chmod 600 "$CODEX_HOME/auth.json"
-          codex login status
-      - name: Run fresh frame check
-        run: |
-          python .github/benchmarks/harness_poc_01_runner.py run \
-            --mode brake \
-            --case "${{ matrix.case_id }}" \
-            --output "out/brake-${{ matrix.case_id }}"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: harness-brake-${{ matrix.case_id }}
-          path: out/brake-${{ matrix.case_id }}/
-          if-no-files-found: error
-          retention-days: 1
+          for CASE_ID in 1 2 3; do
+            python .github/benchmarks/harness_poc_01_runner.py run \
+              --mode brake \
+              --case "$CASE_ID" \
+              --output "out/brake-$CASE_ID"
+            python .github/benchmarks/harness_poc_01_runner.py run \
+              --mode synth \
+              --case "$CASE_ID" \
+              --brake-file "out/brake-$CASE_ID/result.txt" \
+              --output "out/synth-$CASE_ID"
+          done
 
-  synthesis:
-    needs: brake
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        case_id: ['1', '2', '3']
-    env:
-      CODEX_HOME: /tmp/codex-home
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Install Codex CLI
-        run: npm install -g @openai/codex@latest
-      - name: Restore ChatGPT subscription auth
-        env:
-          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+      - name: Run A direct
         run: |
-          test -n "$CODEX_AUTH_JSON"
-          mkdir -p "$CODEX_HOME"
-          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
-          chmod 600 "$CODEX_HOME/auth.json"
-          codex login status
-      - uses: actions/download-artifact@v4
-        with:
-          name: harness-brake-${{ matrix.case_id }}
-          path: /tmp/brake-input
-      - name: Run synthesis
-        run: |
-          python .github/benchmarks/harness_poc_01_runner.py run \
-            --mode synth \
-            --case "${{ matrix.case_id }}" \
-            --brake-file /tmp/brake-input/result.txt \
-            --output "out/synth-${{ matrix.case_id }}"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: harness-synth-${{ matrix.case_id }}
-          path: out/synth-${{ matrix.case_id }}/
-          if-no-files-found: error
-          retention-days: 1
+          for CASE_ID in 1 2 3; do
+            python .github/benchmarks/harness_poc_01_runner.py run \
+              --mode direct \
+              --case "$CASE_ID" \
+              --output "out/direct-$CASE_ID"
+          done
 
-  report:
-    needs:
-      - direct
-      - brake
-      - synthesis
-    if: ${{ needs.direct.result == 'success' && needs.brake.result == 'success' && needs.synthesis.result == 'success' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: harness-direct-*
-          path: collected/direct
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: harness-brake-*
-          path: collected/brake
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: harness-synth-*
-          path: collected/synth
+      - name: Stage exact outputs for provenance report
+        run: |
+          mkdir -p collected/direct collected/brake collected/synth
+          for CASE_ID in 1 2 3; do
+            cp -a "out/direct-$CASE_ID" "collected/direct/harness-direct-$CASE_ID"
+            cp -a "out/brake-$CASE_ID" "collected/brake/harness-brake-$CASE_ID"
+            cp -a "out/synth-$CASE_ID" "collected/synth/harness-synth-$CASE_ID"
+          done
+
       - name: Build blinded comparison packet
         run: |
           python .github/benchmarks/harness_poc_01_runner.py report \
@@ -155,6 +73,7 @@ jobs:
             --run-id "${{ github.run_id }}" \
             --run-sha "${{ github.sha }}" \
             --output report
+
       - name: Publish blinded comparison issue
         env:
           GH_TOKEN: ${{ github.token }}
@@ -165,6 +84,7 @@ jobs:
             --body-file report/issue-body.md)
           printf '%s\n' "$URL" | tee report/result-url.txt
           echo "Result: $URL" >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v4
         with:
           name: harness-poc-01-technical-${{ github.run_id }}
