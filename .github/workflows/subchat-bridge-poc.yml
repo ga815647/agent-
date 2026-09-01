@@ -98,6 +98,10 @@ jobs:
               project_conversation_created = $false
               fixed_prompt_submitted = $false
               conversation_url = $null
+              rate_limit_notice_seen = $false
+              rate_limit_notice_dismissed = $false
+              rate_limit_recovered = $false
+              retry_allowed_now = $false
               assistant_output_accessed = $false
             } | ConvertTo-Json
             [IO.File]::WriteAllText(
@@ -135,6 +139,10 @@ jobs:
                 project_conversation_created: false,
                 fixed_prompt_submitted: false,
                 conversation_url: null,
+                rate_limit_notice_seen: false,
+                rate_limit_notice_dismissed: false,
+                rate_limit_recovered: false,
+                retry_allowed_now: false,
                 assistant_output_accessed: false
               };
             }
@@ -147,10 +155,16 @@ jobs:
               result.ordinary_conversation_created === true &&
               result.fixed_prompt_submitted === true &&
               result.assistant_output_accessed === false;
+            const rateLimited = result.status === 'RATE_LIMITED';
+            const rateLimitNotice = rateLimited
+              ? 'HARD_LIMIT'
+              : result.rate_limit_notice_seen === true && result.rate_limit_recovered === true
+                ? 'RECOVERED'
+                : 'NOT_SEEN';
             const comment = [
               'SUBCHAT_HOST_ACK',
               '',
-              `status: ${passed ? 'PASS' : 'FAIL'}`,
+              `status: ${passed ? 'PASS' : rateLimited ? 'RATE_LIMITED' : 'FAIL'}`,
               `issue: #${issueNumber}`,
               `run_id: ${context.runId}`,
               `host_health: ${result.host_health || 'UNKNOWN'}`,
@@ -161,6 +175,9 @@ jobs:
               `conversation_creation: ${result.ordinary_conversation_created === true ? 'PASS' : 'FAIL'}`,
               `prompt_submission: ${result.fixed_prompt_submitted === true ? 'PASS' : 'FAIL'}`,
               `conversation_url: ${result.conversation_url || 'NOT_AVAILABLE'}`,
+              `rate_limit_notice: ${rateLimitNotice}`,
+              `retry_allowed_now: ${result.retry_allowed_now === true ? 'true' : 'false'}`,
+              ...(Number.isInteger(result.retry_after_seconds) ? [`retry_after_seconds: ${result.retry_after_seconds}`] : []),
               `assistant_output_accessed: ${result.assistant_output_accessed === true ? 'true' : 'false'}`
             ].join('\n');
 
@@ -170,4 +187,8 @@ jobs:
               issue_number: issueNumber,
               body: comment
             });
-            if (!passed) core.setFailed('Persistent ChatGPT host execution failed.');
+            if (!passed) {
+              core.setFailed(rateLimited
+                ? 'Persistent ChatGPT host is in a bounded rate-limit cooldown.'
+                : 'Persistent ChatGPT host execution failed.');
+            }

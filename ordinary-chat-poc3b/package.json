@@ -11,7 +11,8 @@
     "host:status": "node persistent-host.mjs status",
     "host:stop": "node persistent-host.mjs stop",
     "host:send-test": "node persistent-host.mjs send-test",
-    "host:dispatch": "node persistent-host.mjs dispatch"
+    "host:dispatch": "node persistent-host.mjs dispatch",
+    "test": "node --test rate-limit-policy.test.mjs"
   },
   "dependencies": {
     "playwright-core": "latest"

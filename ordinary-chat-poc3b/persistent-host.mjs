@@ -5,6 +5,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import {
+  buildHardRateLimitState,
+  classifyRateLimitCopy,
+  cooldownDecision,
+  createRateLimitTracker,
+  DEFAULT_RATE_LIMIT_COOLDOWN_MS,
+  handleSoftRateLimitNotice,
+  isRateLimitDismissLabel
+} from './rate-limit-policy.mjs';
 
 const FIXED_PROMPT = 'Return exactly: PERSISTENT_CHAT_HOST_001';
 const CHATGPT_URL = 'https://chatgpt.com/';
@@ -18,8 +27,10 @@ const CDP_BASE = `http://127.0.0.1:${CDP_PORT}`;
 const STATE_PATH = path.join(HOST_ROOT, 'host-state.json');
 const RESULT_PATH = path.join(HOST_ROOT, 'last-result.json');
 const CONFIG_PATH = path.join(HOST_ROOT, 'host-config.json');
+const RATE_LIMIT_STATE_PATH = path.join(HOST_ROOT, 'rate-limit-state.json');
 const OWNER_PATH = path.join(HOST_ROOT, 'profile-owner.json');
 const LOCK_PATH = path.join(HOST_ROOT, 'controller.lock');
+const RATE_LIMIT_COOLDOWN_MS = Number(process.env.CHATGPT_HOST_RATE_LIMIT_COOLDOWN_MS || DEFAULT_RATE_LIMIT_COOLDOWN_MS);
 const ACTION = process.argv[2] || 'status';
 const VALID_ACTIONS = new Set(['start', 'open', 'status', 'stop', 'send-test', 'dispatch', 'checkpoint', 'set-worker-project']);
 
@@ -40,6 +51,9 @@ function isWithin(parent, child) {
 function assertSafePaths() {
   if (!Number.isInteger(CDP_PORT) || CDP_PORT < 1024 || CDP_PORT > 65535) {
     throw new Error('CHATGPT_HOST_PORT must be an integer from 1024 to 65535.');
+  }
+  if (!Number.isInteger(RATE_LIMIT_COOLDOWN_MS) || RATE_LIMIT_COOLDOWN_MS < 60000 || RATE_LIMIT_COOLDOWN_MS > 3600000) {
+    throw new Error('CHATGPT_HOST_RATE_LIMIT_COOLDOWN_MS must be an integer from 60000 to 3600000.');
   }
   if (isWithin(os.tmpdir(), PROFILE_PATH)) {
     throw new Error(`Persistent profile must not be under the temporary directory: ${PROFILE_PATH}`);
@@ -62,6 +76,23 @@ function readJson(target) {
   } catch {
     return null;
   }
+}
+
+function readRateLimitState() {
+  if (!fs.existsSync(RATE_LIMIT_STATE_PATH)) return null;
+  let state;
+  try {
+    state = JSON.parse(fs.readFileSync(RATE_LIMIT_STATE_PATH, 'utf8'));
+  } catch {
+    throw new Error('Rate-limit state exists but is not valid JSON.');
+  }
+  cooldownDecision(state);
+  return state;
+}
+
+function currentCooldown() {
+  const state = readRateLimitState();
+  return { state, decision: cooldownDecision(state) };
 }
 
 function validateWorkerProjectUrl(value) {
@@ -331,6 +362,112 @@ async function firstVisible(page, selectors) {
   return null;
 }
 
+const COMPOSER_SELECTORS = [
+  '#prompt-textarea',
+  '[data-testid="prompt-textarea"]',
+  'div[contenteditable="true"][role="textbox"]'
+];
+
+async function usableComposer(page) {
+  const composer = await firstVisible(page, COMPOSER_SELECTORS);
+  if (!composer) return null;
+  try {
+    if (!await composer.isEnabled()) return null;
+    if (await composer.getAttribute('aria-disabled') === 'true') return null;
+    return composer;
+  } catch {
+    return null;
+  }
+}
+
+async function detectRateLimitModal(page) {
+  for (const selector of ['[role="alertdialog"]', '[role="dialog"]', '[aria-modal="true"]']) {
+    const candidates = page.locator(selector);
+    const count = await candidates.count().catch(() => 0);
+    for (let index = 0; index < Math.min(count, 12); index += 1) {
+      const modal = candidates.nth(index);
+      if (!await modal.isVisible().catch(() => false)) continue;
+      const modalText = await modal.innerText().catch(() => '');
+      const locale = classifyRateLimitCopy(modalText.slice(0, 4000));
+      if (!locale) continue;
+
+      const buttons = modal.getByRole('button');
+      const buttonCount = await buttons.count().catch(() => 0);
+      let dismissButton = null;
+      for (let buttonIndex = 0; buttonIndex < Math.min(buttonCount, 12); buttonIndex += 1) {
+        const button = buttons.nth(buttonIndex);
+        const label = await button.innerText().catch(() => '');
+        if (isRateLimitDismissLabel(label) && await button.isVisible().catch(() => false)) {
+          dismissButton = button;
+          break;
+        }
+      }
+      return { modal, dismissButton, dismissible: !!dismissButton, locale };
+    }
+  }
+  return null;
+}
+
+async function firstPageWithRateLimit(context) {
+  for (const page of context.pages().filter(candidate => candidate.url().includes('chatgpt.com'))) {
+    const notice = await detectRateLimitModal(page);
+    if (notice) return { page, notice };
+  }
+  return null;
+}
+
+function rateLimitAdapter(page) {
+  return {
+    detect: () => detectRateLimitModal(page),
+    dismiss: async notice => notice.dismissButton.click(),
+    waitForRecovery: async notice => {
+      await notice.modal.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+      if (await notice.modal.isVisible().catch(() => false)) {
+        return { composerUsable: false, modalVisible: true };
+      }
+      const deadline = Date.now() + 7000;
+      while (Date.now() < deadline) {
+        if (await detectRateLimitModal(page)) return { composerUsable: false, modalVisible: true };
+        if (await usableComposer(page)) return { composerUsable: true, modalVisible: false };
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
+      return { composerUsable: false, modalVisible: false };
+    }
+  };
+}
+
+class HardRateLimitError extends Error {
+  constructor(reason) {
+    super(reason);
+    this.name = 'HardRateLimitError';
+    this.reason = reason;
+  }
+}
+
+async function resolveSoftRateLimit(page, tracker, initialNotice = null) {
+  const outcome = await handleSoftRateLimitNotice(tracker, rateLimitAdapter(page), initialNotice);
+  if (outcome.kind === 'HARD') throw new HardRateLimitError(outcome.reason);
+  return outcome;
+}
+
+async function waitForComposerWithRateLimit(page, tracker, timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const freshAuth = await authenticationState(page);
+    if (freshAuth === 'LOGIN_REQUIRED') {
+      throw new Error('Fresh ChatGPT page unexpectedly requires login.');
+    }
+    const notice = await detectRateLimitModal(page);
+    if (notice) {
+      await resolveSoftRateLimit(page, tracker, notice);
+    }
+    const composer = await usableComposer(page);
+    if (composer) return composer;
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  return null;
+}
+
 async function authenticationState(page) {
   if (!page || !page.url().includes('chatgpt.com')) return 'NOT_ON_CHATGPT';
   const login = await firstVisible(page, [
@@ -340,7 +477,13 @@ async function authenticationState(page) {
     'button:has-text("註冊")', 'a:has-text("註冊")'
   ]);
   if (login) return 'LOGIN_REQUIRED';
-  const profile = await firstVisible(page, [
+  const profile = await accountProfile(page);
+  const composer = await usableComposer(page);
+  return profile && composer ? 'AUTHENTICATED' : 'UNKNOWN';
+}
+
+async function accountProfile(page) {
+  return firstVisible(page, [
     '[data-testid="profile-button"]',
     '[data-testid="accounts-profile-button"]',
     'button[data-testid*="profile"]',
@@ -349,12 +492,6 @@ async function authenticationState(page) {
     'button[aria-label*="帳戶"]',
     'button[aria-label*="個人"]'
   ]);
-  const composer = await firstVisible(page, [
-    '#prompt-textarea',
-    '[data-testid="prompt-textarea"]',
-    'div[contenteditable="true"][role="textbox"]'
-  ]);
-  return profile && composer ? 'AUTHENTICATED' : 'UNKNOWN';
 }
 
 async function chatPage(context, { create = false, targetUrl = CHATGPT_URL } = {}) {
@@ -373,6 +510,7 @@ async function chatPage(context, { create = false, targetUrl = CHATGPT_URL } = {
 
 async function reportStatus() {
   assertSafePaths();
+  const cooldown = currentCooldown();
   let workerConfig = null;
   let workerConfigError = null;
   try {
@@ -388,6 +526,8 @@ async function reportStatus() {
       profile_path: PROFILE_PATH,
       profile_exists: fs.existsSync(PROFILE_PATH),
       worker_project_config: workerProjectStatus,
+      rate_limit_cooldown: cooldown.decision.status,
+      retry_allowed_now: cooldown.decision.retryAllowedNow,
       ...(workerConfigError ? { worker_project_config_error: workerConfigError } : {})
     });
     return workerConfigError ? 6 : 3;
@@ -395,12 +535,17 @@ async function reportStatus() {
   const { context } = await connectBrowser();
   const page = context.pages().find(candidate => candidate.url().includes('chatgpt.com')) || null;
   const auth = await authenticationState(page);
+  const visibleRateLimit = !!await firstPageWithRateLimit(context);
   jsonOut({
     status: 'RUNNING',
     browser_pid: profilePids[0],
     profile_path: PROFILE_PATH,
     authentication: auth,
     worker_project_config: workerProjectStatus,
+    rate_limit_notice_visible: visibleRateLimit,
+    rate_limit_cooldown: cooldown.decision.status,
+    retry_allowed_now: cooldown.decision.retryAllowedNow,
+    ...(cooldown.decision.status === 'ACTIVE' ? { retry_after_seconds: cooldown.decision.retryAfterSeconds } : {}),
     ...(workerConfigError ? { worker_project_config_error: workerConfigError } : {}),
     ordinary_chat_surface: !!page && !/\/(?:work|codex)(?:\/|$)/i.test(new URL(page.url()).pathname)
   });
@@ -434,89 +579,205 @@ function projectRoute(workerProjectUrl) {
   return pathname.slice(0, -'/project'.length);
 }
 
-async function submitPrompt(prompt, { workerProject = false } = {}) {
-  const workerConfig = workerProject ? readWorkerConfig({ required: true }) : null;
-  const targetUrl = workerConfig?.workerProjectUrl || CHATGPT_URL;
-  const started = await ensureBrowserStarted();
-  const { context } = await connectBrowser();
-  const authenticatedPage = await chatPage(context);
-  const existingAuth = await authenticationState(authenticatedPage);
-  if (existingAuth !== 'AUTHENTICATED') {
-    throw new Error(`ChatGPT session is not authenticated (state: ${existingAuth}). Complete manual login first.`);
-  }
-
-  const page = await chatPage(context, { create: true, targetUrl });
-  await page.bringToFront();
-  if (/\/(?:work|codex)(?:\/|$)/i.test(new URL(page.url()).pathname)) {
-    throw new Error('Refusing to submit on a Work/Codex surface.');
-  }
-
-  const targetPath = new URL(targetUrl).pathname.replace(/\/$/, '');
-  const landingPath = new URL(page.url()).pathname.replace(/\/$/, '');
-  const projectLandingUsed = workerProject ? landingPath === targetPath : null;
-  if (workerProject && !projectLandingUsed) {
-    throw new Error('Configured worker Project landing page did not remain on the expected ChatGPT Project route.');
-  }
-
-  let composer = null;
-  await waitFor(async () => {
-    const freshAuth = await authenticationState(page);
-    if (freshAuth === 'LOGIN_REQUIRED') {
-      throw new Error('Fresh ChatGPT page unexpectedly requires login.');
-    }
-    composer = await firstVisible(page, [
-      '#prompt-textarea',
-      '[data-testid="prompt-textarea"]',
-      'div[contenteditable="true"][role="textbox"]'
-    ]);
-    return !!composer;
-  }, 20000, 500);
-  if (!composer) throw new Error('Ordinary ChatGPT composer was not found.');
-
-  await composer.click();
-  try {
-    await composer.fill(prompt);
-  } catch {
-    await page.keyboard.insertText(prompt);
-  }
-  const send = await firstVisible(page, [
-    'button[data-testid="send-button"]',
-    'button[aria-label="Send prompt"]',
-    'button[aria-label="Send message"]',
-    'button[aria-label*="傳送"]'
-  ]);
-  if (send) await send.click();
-  else await composer.press('Enter');
-
-  const expectedProjectRoute = workerProject ? projectRoute(targetUrl) : null;
-  await page.waitForURL(url => {
-    const pathname = url.pathname;
-    if (workerProject) return pathname.startsWith(`${expectedProjectRoute}/c/`);
-    return /\/c\/[0-9a-f-]{20,}/i.test(pathname);
-  }, { timeout: 60000 }).catch(() => {});
-  const conversationPath = new URL(page.url()).pathname;
-  const conversationCreated = workerProject
-    ? conversationPath.startsWith(`${expectedProjectRoute}/c/`) && /\/c\/[0-9a-f-]{20,}/i.test(conversationPath)
-    : /\/c\/[0-9a-f-]{20,}/i.test(conversationPath);
-  const promptVisible = await page.getByText(prompt, { exact: true }).count().then(count => count > 0).catch(() => false);
-  const result = {
-    status: conversationCreated && promptVisible ? 'PASS' : 'FAIL',
-    tested_at: new Date().toISOString(),
-    browser_reused: started.reused,
-    host_health: 'PASS',
-    authentication: existingAuth,
-    target_kind: workerProject ? 'PROJECT' : 'ROOT',
-    project_landing_used: projectLandingUsed,
-    project_conversation_created: workerProject ? conversationCreated : null,
-    ordinary_conversation_created: conversationCreated,
-    fixed_prompt_submitted: promptVisible,
-    conversation_url: conversationCreated ? (workerProject ? 'PRIVATE_PROJECT_CONVERSATION' : page.url()) : null,
-    assistant_output_accessed: false,
-    profile_path: PROFILE_PATH
+function rateLimitResultFields(tracker) {
+  return {
+    rate_limit_notice_seen: tracker.noticeSeen,
+    rate_limit_dismissal_attempted: tracker.dismissAttempted === true,
+    rate_limit_notice_dismissed: tracker.noticeDismissed,
+    rate_limit_recovered: tracker.recovered,
+    assistant_output_accessed: false
   };
+}
+
+function writeResult(result, exitCode) {
   atomicWrite(RESULT_PATH, result);
   jsonOut(result);
-  return result.status === 'PASS' ? 0 : 5;
+  return exitCode;
+}
+
+function activeCooldownResult(cooldown, { workerProject }) {
+  const tracker = {
+    noticeSeen: cooldown.state?.rate_limit_notice_seen === true,
+    dismissAttempted: cooldown.state?.rate_limit_dismissal_attempted === true,
+    noticeDismissed: cooldown.state?.rate_limit_notice_dismissed === true,
+    recovered: false
+  };
+  return {
+    status: 'RATE_LIMITED',
+    tested_at: new Date().toISOString(),
+    browser_reused: null,
+    host_health: 'PASS',
+    authentication: cooldown.state?.authentication || 'UNKNOWN',
+    target_kind: workerProject ? 'PROJECT' : 'ROOT',
+    project_landing_used: false,
+    project_conversation_created: false,
+    ordinary_conversation_created: false,
+    fixed_prompt_submitted: false,
+    conversation_url: null,
+    ...rateLimitResultFields(tracker),
+    cooldown_active: true,
+    retry_allowed_now: false,
+    retry_after_seconds: cooldown.decision.retryAfterSeconds,
+    profile_path: PROFILE_PATH
+  };
+}
+
+function hardRateLimitResult({ reason, tracker, authentication, started, workerProject, projectLandingUsed }) {
+  const state = buildHardRateLimitState({
+    cooldownMs: RATE_LIMIT_COOLDOWN_MS,
+    reason,
+    authentication,
+    tracker
+  });
+  atomicWrite(RATE_LIMIT_STATE_PATH, state);
+  return {
+    status: 'RATE_LIMITED',
+    tested_at: state.detected_at,
+    browser_reused: started?.reused ?? null,
+    host_health: 'PASS',
+    authentication,
+    target_kind: workerProject ? 'PROJECT' : 'ROOT',
+    project_landing_used: projectLandingUsed,
+    project_conversation_created: false,
+    ordinary_conversation_created: false,
+    fixed_prompt_submitted: false,
+    conversation_url: null,
+    ...rateLimitResultFields(tracker),
+    cooldown_active: true,
+    retry_allowed_now: false,
+    retry_after_seconds: Math.ceil(RATE_LIMIT_COOLDOWN_MS / 1000),
+    profile_path: PROFILE_PATH
+  };
+}
+
+async function submitPrompt(prompt, { workerProject = false } = {}) {
+  const cooldown = currentCooldown();
+  if (cooldown.decision.status === 'ACTIVE') {
+    return writeResult(activeCooldownResult(cooldown, { workerProject }), 7);
+  }
+
+  const tracker = createRateLimitTracker();
+  const workerConfig = workerProject ? readWorkerConfig({ required: true }) : null;
+  const targetUrl = workerConfig?.workerProjectUrl || CHATGPT_URL;
+  let started = null;
+  let existingAuth = 'UNKNOWN';
+  let projectLandingUsed = workerProject ? false : null;
+  try {
+    started = await ensureBrowserStarted();
+    const { context } = await connectBrowser();
+
+    const existingNotice = await firstPageWithRateLimit(context);
+    if (existingNotice) {
+      if (await accountProfile(existingNotice.page)) existingAuth = 'AUTHENTICATED';
+      await resolveSoftRateLimit(existingNotice.page, tracker, existingNotice.notice);
+    }
+
+    const authenticatedPage = await chatPage(context);
+    existingAuth = await authenticationState(authenticatedPage);
+    if (existingAuth !== 'AUTHENTICATED') {
+      throw new Error(`ChatGPT session is not authenticated (state: ${existingAuth}). Complete manual login first.`);
+    }
+
+    const page = await chatPage(context, { create: true, targetUrl });
+    await page.bringToFront();
+    if (/\/(?:work|codex)(?:\/|$)/i.test(new URL(page.url()).pathname)) {
+      throw new Error('Refusing to submit on a Work/Codex surface.');
+    }
+
+    const targetPath = new URL(targetUrl).pathname.replace(/\/$/, '');
+    const landingPath = new URL(page.url()).pathname.replace(/\/$/, '');
+    projectLandingUsed = workerProject ? landingPath === targetPath : null;
+    if (workerProject && !projectLandingUsed) {
+      throw new Error('Configured worker Project landing page did not remain on the expected ChatGPT Project route.');
+    }
+
+    let composer = await waitForComposerWithRateLimit(page, tracker);
+    if (!composer) throw new Error('Ordinary ChatGPT composer was not found.');
+
+    await composer.click();
+    try {
+      await composer.fill(prompt);
+    } catch {
+      await page.keyboard.insertText(prompt);
+    }
+
+    const preSubmissionNotice = await detectRateLimitModal(page);
+    if (preSubmissionNotice) {
+      await resolveSoftRateLimit(page, tracker, preSubmissionNotice);
+      composer = await usableComposer(page);
+      if (!composer) throw new HardRateLimitError('COMPOSER_NOT_RECOVERED');
+      await composer.fill(prompt);
+    }
+
+    const send = await firstVisible(page, [
+      'button[data-testid="send-button"]',
+      'button[aria-label="Send prompt"]',
+      'button[aria-label="Send message"]',
+      'button[aria-label*="傳送"]'
+    ]);
+    try {
+      if (send) await send.click();
+      else await composer.press('Enter');
+    } catch (error) {
+      if (await detectRateLimitModal(page)) {
+        tracker.noticeSeen = true;
+        tracker.noticeCount += 1;
+        throw new HardRateLimitError('SUBMISSION_RATE_LIMIT');
+      }
+      throw error;
+    }
+
+    const expectedProjectRoute = workerProject ? projectRoute(targetUrl) : null;
+    let conversationCreated = false;
+    let promptVisible = false;
+    const submissionDeadline = Date.now() + 60000;
+    while (Date.now() < submissionDeadline) {
+      const submissionNotice = await detectRateLimitModal(page);
+      if (submissionNotice) {
+        tracker.noticeSeen = true;
+        tracker.noticeCount += 1;
+        throw new HardRateLimitError('SUBMISSION_RATE_LIMIT');
+      }
+      const conversationPath = new URL(page.url()).pathname;
+      conversationCreated = workerProject
+        ? conversationPath.startsWith(`${expectedProjectRoute}/c/`) && /\/c\/[0-9a-f-]{20,}/i.test(conversationPath)
+        : /\/c\/[0-9a-f-]{20,}/i.test(conversationPath);
+      promptVisible = await page.getByText(prompt, { exact: true }).count().then(count => count > 0).catch(() => false);
+      if (conversationCreated && promptVisible) break;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+
+    const result = {
+      status: conversationCreated && promptVisible ? 'PASS' : 'FAIL',
+      tested_at: new Date().toISOString(),
+      browser_reused: started.reused,
+      host_health: 'PASS',
+      authentication: existingAuth,
+      target_kind: workerProject ? 'PROJECT' : 'ROOT',
+      project_landing_used: projectLandingUsed,
+      project_conversation_created: workerProject ? conversationCreated : null,
+      ordinary_conversation_created: conversationCreated,
+      fixed_prompt_submitted: promptVisible,
+      conversation_url: conversationCreated ? (workerProject ? 'PRIVATE_PROJECT_CONVERSATION' : page.url()) : null,
+      ...rateLimitResultFields(tracker),
+      cooldown_active: false,
+      retry_allowed_now: true,
+      profile_path: PROFILE_PATH
+    };
+    return writeResult(result, result.status === 'PASS' ? 0 : 5);
+  } catch (error) {
+    if (error instanceof HardRateLimitError) {
+      return writeResult(hardRateLimitResult({
+        reason: error.reason,
+        tracker,
+        authentication: existingAuth,
+        started,
+        workerProject,
+        projectLandingUsed
+      }), 7);
+    }
+    throw error;
+  }
 }
 
 async function stopBrowser() {

@@ -67,6 +67,24 @@ Remove-Item Env:\SUBCHAT_HOST_PROMPT
 
 The adapted `subchat-bridge-poc.yml` supports owner-only, exact-title `SUBCHAT-HOST-POC` issue events and optional diagnostic `workflow_dispatch` tests. Automatic Issue dispatch is active from the default branch and is routed exclusively to the labeled persistent Windows host.
 
+### Soft rate-limit resilience
+
+The controller recognizes the ChatGPT `太多要求` / `Too many requests` modal only within dialog/alert/modal UI. During one dispatch it may click one bounded acknowledgment (`知道了`, `OK`, or an equivalent supported label) and wait briefly for the composer to recover. If recovery succeeds, that same dispatch continues once; it does not enqueue or submit a second request.
+
+The controller hard-stops with `status: RATE_LIMITED` when the notice reappears, cannot be dismissed, does not restore the composer, or appears after prompt submission. A hard limit creates this local runtime file outside git:
+
+```text
+%LOCALAPPDATA%\ChatDev\PersistentChatHost\rate-limit-state.json
+```
+
+The default cooldown is ten minutes. A later dispatch during an active cooldown fails fast without navigating, dismissing, or submitting. There is no retry loop, reload loop, or attempt to bypass ChatGPT limits. The Issue status distinguishes `RATE_LIMITED` from authentication failure and never reads assistant output.
+
+Run deterministic policy fixtures without contacting ChatGPT:
+
+```powershell
+npm test
+```
+
 Before a reboot, create a non-secret checkpoint and close Chrome cleanly:
 
 ```powershell
@@ -80,4 +98,4 @@ After Windows restarts:
 .\resume-after-reboot.ps1
 ```
 
-Optional environment overrides are `CHATGPT_HOST_ROOT`, `CHATGPT_HOST_PROFILE`, `CHATGPT_HOST_PORT`, and `CHATGPT_HOST_CHROME`. The profile override is rejected if it is inside this repository or the Windows temporary directory.
+Optional environment overrides are `CHATGPT_HOST_ROOT`, `CHATGPT_HOST_PROFILE`, `CHATGPT_HOST_PORT`, `CHATGPT_HOST_CHROME`, and `CHATGPT_HOST_RATE_LIMIT_COOLDOWN_MS`. The profile override is rejected if it is inside this repository or the Windows temporary directory. The cooldown override is bounded to one minute through one hour.
