@@ -17,8 +17,8 @@ If `EARLY_EXIT_SAFE`, answer normally without fetching REVIEW or SYNTHESIZE. If 
 ## Default runtime — STAGED_3 with early exit
 
 Repository: `ga815647/agent-`
-Ref: `7fa7470fd85e05095e10095e792ed3a9134bb6a1`
-Path: `external-cognitive-harness-v0/`
+Ref: `c11f72574431652d9ec8a3796ead8016650cda45`
+Path: `external-cognitive-harness-chatdev-v0_1/`
 
 Stage gate:
 1. Always fetch only `FRAME.md` first. Before fetching later stages, either:
@@ -28,6 +28,8 @@ Stage gate:
 3. Then fetch `SYNTHESIZE.md` and produce the user-facing answer.
 
 Never prefetch REVIEW or SYNTHESIZE before the FRAME-stage decision is complete. Keep all Harness packets and ingress decisions private unless the user explicitly asks for them. Normal authoritative factual verification still applies.
+
+The active Chat Dev FRAME adds one lightweight Orchestrator reflex: when a request implies substantial execution, briefly consider whether a bounded Worker would preserve Orchestrator context. This is a trigger only, not a new dispatch gate; actual dispatch follows current Chat Dev rules.
 
 ## Conversation-local Harness latch — real-use probe
 
@@ -63,10 +65,13 @@ The 2026-09-01 phase-boundary screen returned `NO_DETECTABLE_DIFFERENCE`: H1/H2/
 
 Mandatory ingress + early exit is a runtime policy choice intended to reduce false-negative routing at the Harness boundary. It has not yet been separately validated as an efficacy improvement.
 
+The Chat Dev dispatch reflex is a real-use candidate added to address an observed trigger gap: current dispatch checks only run after Worker dispatch is already being considered. Its benefit and interaction cost are not yet independently validated.
+
 Known hard/long-context failures and future real-use regressions should be used as discriminating evidence. Fresh-context isolation is a separate mechanism and is not implied by STAGED_3.
 
 ## Rollback / references
 
+- Previous STAGED_3 ref: `7fa7470fd85e05095e10095e792ed3a9134bb6a1` path `external-cognitive-harness-v0/`
 - ONE_READ fallback ref: `c3968b98f089c6bcf680d4015422f070f1f829e8`
 - FAST candidate ref: `60a94900a01dd13eeb156fd9a8069a063d3b302f`
 - Frozen full v0 reference: `e1d483fdea6de64c6672421b7e63af5a74f82cca`
