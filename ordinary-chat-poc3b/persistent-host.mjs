@@ -356,22 +356,31 @@ async function openChat() {
 async function sendFixedPrompt() {
   const started = await ensureBrowserStarted();
   const { context } = await connectBrowser();
+  const authenticatedPage = await chatPage(context);
+  const existingAuth = await authenticationState(authenticatedPage);
+  if (existingAuth !== 'AUTHENTICATED') {
+    throw new Error(`ChatGPT session is not authenticated (state: ${existingAuth}). Complete manual login first.`);
+  }
+
   const page = await chatPage(context, { create: true });
   await page.bringToFront();
-
-  const auth = await authenticationState(page);
-  if (auth !== 'AUTHENTICATED') {
-    throw new Error(`ChatGPT session is not authenticated (state: ${auth}). Complete manual login first.`);
-  }
   if (/\/(?:work|codex)(?:\/|$)/i.test(new URL(page.url()).pathname)) {
     throw new Error('Refusing to submit on a Work/Codex surface.');
   }
 
-  const composer = await firstVisible(page, [
-    '#prompt-textarea',
-    '[data-testid="prompt-textarea"]',
-    'div[contenteditable="true"][role="textbox"]'
-  ]);
+  let composer = null;
+  await waitFor(async () => {
+    const freshAuth = await authenticationState(page);
+    if (freshAuth === 'LOGIN_REQUIRED') {
+      throw new Error('Fresh ChatGPT page unexpectedly requires login.');
+    }
+    composer = await firstVisible(page, [
+      '#prompt-textarea',
+      '[data-testid="prompt-textarea"]',
+      'div[contenteditable="true"][role="textbox"]'
+    ]);
+    return !!composer;
+  }, 20000, 500);
   if (!composer) throw new Error('Ordinary ChatGPT composer was not found.');
 
   await composer.click();
@@ -462,4 +471,3 @@ main()
     jsonOut({ status: 'ERROR', error: error.message, profile_path: PROFILE_PATH });
     setTimeout(() => process.exit(1), 50);
   });
-
