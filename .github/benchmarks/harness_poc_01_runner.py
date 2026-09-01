@@ -9,6 +9,7 @@ import os
 import re
 import runpy
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -92,6 +93,14 @@ def run_stage(mode: str, case_id: str, output_dir: Path, brake_file: Path | None
     output_dir.mkdir(parents=True, exist_ok=True)
     work = Path(f"/tmp/harness-poc-01-{mode}-{case_id}")
     work.mkdir(parents=True, exist_ok=True)
+    # Empty repo: Codex gets a normal trusted execution root but no project/repo context.
+    subprocess.run(
+        ["git", "init", "-q"],
+        cwd=work,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=True,
+    )
     prompt_path = work / "prompt.txt"
     result_path = work / "result.txt"
     prompt_path.write_text(prompt, encoding="utf-8")
@@ -106,7 +115,6 @@ def run_stage(mode: str, case_id: str, output_dir: Path, brake_file: Path | None
         "--sandbox",
         "read-only",
         "--ignore-user-config",
-        "--skip-git-repo-check",
         "--output-last-message",
         str(result_path),
         "-",
@@ -134,6 +142,11 @@ def run_stage(mode: str, case_id: str, output_dir: Path, brake_file: Path | None
     (output_dir / "token_status.txt").write_text(status, encoding="utf-8")
 
     if proc.returncode != 0 or not result_path.exists():
+        # Auth is never printed by Codex here; expose only CLI/model diagnostics.
+        if proc.stdout:
+            print(proc.stdout)
+        if proc.stderr:
+            print(proc.stderr, file=sys.stderr)
         raise SystemExit(f"Codex {mode} case {case_id} failed with rc={proc.returncode}")
     result = result_path.read_text(encoding="utf-8").strip()
     if not result:
