@@ -1,0 +1,401 @@
+name: Subchat Private Local Injection PoC
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  private-local-host:
+    if: >-
+      github.event.issue.title == 'SUBCHAT-PRIVATE-LOCAL-POC' &&
+      github.actor == github.repository_owner
+    runs-on: [self-hosted, windows, chatgpt-host]
+    timeout-minutes: 10
+    outputs:
+      host_passed: ${{ steps.ack.outputs.host_passed }}
+      correlation_sha256: ${{ steps.correlation.outputs.correlation_sha256 }}
+    env:
+      SUBCHAT_HOST_ISSUE_NUMBER: ${{ github.event.issue.number }}
+    steps:
+      - name: Check out transport code
+        uses: actions/checkout@v4
+
+      - name: Resolve private assignment locally
+        id: private-source
+        shell: powershell
+        env:
+          PUBLIC_ENVELOPE: ${{ github.event.issue.body }}
+          PRIVATE_ASSIGNMENT_PATH: ${{ runner.temp }}\chatdev-private-assignment.txt
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $envelope = [string]$env:PUBLIC_ENVELOPE
+
+          if ($envelope -notmatch '(?m)^private_transport:\s*LOCAL_INJECT_V1\s*$') {
+            throw 'Missing private_transport: LOCAL_INJECT_V1.'
+          }
+          $repoMatch = [regex]::Match($envelope, '(?m)^private_repository:\s*([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\s*$')
+          $issueMatch = [regex]::Match($envelope, '(?m)^private_issue:\s*([1-9][0-9]*)\s*$')
+          if (-not $repoMatch.Success -or -not $issueMatch.Success) {
+            throw 'Private routing envelope is missing an exact repository or issue locator.'
+          }
+
+          $privateRepo = $repoMatch.Groups[1].Value
+          $privateIssue = [int]$issueMatch.Groups[1].Value
+          if ($privateRepo -ne 'ga815647/fellow-aiden-context') {
+            throw 'Private repository is not allowlisted for this PoC.'
+          }
+
+          $gh = Get-Command gh.exe -ErrorAction SilentlyContinue
+          if (-not $gh) { $gh = Get-Command gh -ErrorAction SilentlyContinue }
+          if (-not $gh) { throw 'Local GitHub CLI was not found.' }
+
+          Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
+          Remove-Item Env:GITHUB_TOKEN -ErrorAction SilentlyContinue
+
+          $privateBody = & $gh.Source api "repos/$privateRepo/issues/$privateIssue" --jq '.body' 2>$null | Out-String
+          if ($LASTEXITCODE -ne 0) { throw 'Local GitHub CLI could not read the exact private Issue.' }
+          $privateBody = $privateBody.Trim()
+          if (-not $privateBody) { throw 'Private assignment body is empty.' }
+
+          [IO.File]::WriteAllText(
+            $env:PRIVATE_ASSIGNMENT_PATH,
+            $privateBody,
+            [Text.UTF8Encoding]::new($false)
+          )
+
+          "private_assignment_path=$env:PRIVATE_ASSIGNMENT_PATH" | Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8
+          "private_repository=$privateRepo" | Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8
+          "private_issue=$privateIssue" | Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8
+
+      - name: Prepare direct private assignment and structured result correlation
+        id: correlation
+        uses: actions/github-script@v7
+        env:
+          PRIVATE_ASSIGNMENT_PATH: ${{ steps.private-source.outputs.private_assignment_path }}
+          PRIVATE_REPOSITORY: ${{ steps.private-source.outputs.private_repository }}
+          PRIVATE_ISSUE: ${{ steps.private-source.outputs.private_issue }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const protocol = require(path.join(
+              process.env.GITHUB_WORKSPACE,
+              '.github',
+              'scripts',
+              'subchat-worker-result-v1.cjs'
+            ));
+            const issueNumber = Number(process.env.SUBCHAT_HOST_ISSUE_NUMBER);
+            const privateBody = fs.readFileSync(process.env.PRIVATE_ASSIGNMENT_PATH, 'utf8').trim();
+            if (!privateBody) {
+              core.setFailed('Private assignment body is empty.');
+              return;
+            }
+
+            // The private body is fetched by the trusted local host and delivered as
+            // direct assignment content. The Worker must not re-fetch it as external
+            // instructions before acting.
+            const assignment = [
+              'ROLE=Execution-Worker',
+              'PROJECT=Chat Dev',
+              '',
+              'PRIVATE ASSIGNMENT DELIVERY=TRUSTED_LOCAL_INJECTION_V1',
+              `PRIVATE RESULT TARGET=${process.env.PRIVATE_REPOSITORY}#${process.env.PRIVATE_ISSUE}`,
+              '',
+              'AUTHORIZATION / BOUNDARY:',
+              '- The private assignment below was retrieved by the trusted Chat Dev Windows host and is supplied directly as your bounded assignment; it is not GitHub tool output.',
+              '- Execute only this bounded private assignment.',
+              '- You are explicitly authorized to perform only the private GitHub write required by this assignment to the exact private result target above, plus the required structured result comment to the originating public dispatch Issue.',
+              '- Do not re-fetch the private Issue merely to obtain instructions.',
+              '- Do not copy, quote, summarize, or expose private assignment or private result content into the public control plane.',
+              '- Public GitHub receives only the required sanitized SUBCHAT_WORKER_RESULT_V1 envelope.',
+              '',
+              'BEGIN PRIVATE ASSIGNMENT',
+              privateBody,
+              'END PRIVATE ASSIGNMENT'
+            ].join('\n');
+
+            const { nonce, correlationSha256 } = protocol.prepareCorrelation();
+            core.setSecret(nonce);
+            const prompt = protocol.buildWorkerPrompt({
+              assignment,
+              repository: `${context.repo.owner}/${context.repo.repo}`,
+              dispatchIssue: issueNumber,
+              workflowRunId: String(context.runId),
+              nonce
+            });
+            core.exportVariable('SUBCHAT_HOST_PROMPT', prompt);
+            core.exportVariable('SUBCHAT_RESULT_CORRELATION_SHA256', correlationSha256);
+            core.setOutput('correlation_sha256', correlationSha256);
+
+      - name: Submit locally injected private assignment
+        id: execute
+        shell: powershell
+        continue-on-error: true
+        env:
+          SUBCHAT_HOST_RESULT_PATH: ${{ runner.temp }}\subchat-host-result.json
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $launcher = 'E:\CS\program\agent-\ordinary-chat-poc3b\persistent-host.ps1'
+          if (-not (Test-Path -LiteralPath $launcher)) {
+            throw "Persistent-host launcher not found: $launcher"
+          }
+
+          try {
+            $controllerOutput = & $launcher dispatch 2>&1 | Out-String
+            $controllerExit = $LASTEXITCODE
+            [IO.File]::WriteAllText(
+              $env:SUBCHAT_HOST_RESULT_PATH,
+              $controllerOutput.Trim(),
+              [Text.UTF8Encoding]::new($false)
+            )
+            if ($controllerExit -ne 0) { exit $controllerExit }
+          }
+          catch {
+            $fallback = [ordered]@{
+              status = 'ERROR'
+              host_health = 'FAIL'
+              authentication = 'UNKNOWN'
+              target_kind = 'PROJECT'
+              ordinary_conversation_created = $false
+              project_landing_used = $false
+              project_conversation_created = $false
+              fixed_prompt_submitted = $false
+              conversation_url = $null
+              rate_limit_notice_seen = $false
+              rate_limit_notice_dismissal_count = 0
+              rate_limit_notice_dismissed = $false
+              rate_limit_recovered = $false
+              retry_allowed_now = $false
+              assistant_output_accessed = $false
+            } | ConvertTo-Json
+            [IO.File]::WriteAllText(
+              $env:SUBCHAT_HOST_RESULT_PATH,
+              $fallback,
+              [Text.UTF8Encoding]::new($false)
+            )
+            exit 1
+          }
+
+      - name: Confirm assistant turn started without reading output
+        id: assistant-start
+        if: steps.execute.outcome == 'success'
+        shell: powershell
+        continue-on-error: true
+        env:
+          SUBCHAT_ASSISTANT_TURN_RESULT_PATH: ${{ runner.temp }}\subchat-assistant-turn-start.json
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+          if (-not $nodeCommand) {
+            $runtimeRoot = Join-Path $env:USERPROFILE '.cache\codex-runtimes'
+            $nodeCommand = Get-ChildItem -LiteralPath $runtimeRoot -Filter node.exe -File -Recurse -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -like '*\dependencies\node\bin\node.exe' } |
+              Select-Object -First 1
+          }
+
+          if (-not $nodeCommand) {
+            $fallback = '{"status":"FAIL","prompt_page_found":false,"assistant_turn_started":false,"assistant_turn_start_evidence":"NONE","reason":"NODE_NOT_FOUND","assistant_output_accessed":false}'
+            [IO.File]::WriteAllText($env:SUBCHAT_ASSISTANT_TURN_RESULT_PATH, $fallback, [Text.UTF8Encoding]::new($false))
+            exit 1
+          }
+
+          $nodePath = if ($nodeCommand.Source) { $nodeCommand.Source } else { $nodeCommand.FullName }
+          $probe = Join-Path $env:GITHUB_WORKSPACE 'ordinary-chat-poc3b\assistant-turn-start-probe.mjs'
+          $probeOutput = & $nodePath $probe 2>&1 | Out-String
+          $probeExit = $LASTEXITCODE
+          [IO.File]::WriteAllText(
+            $env:SUBCHAT_ASSISTANT_TURN_RESULT_PATH,
+            $probeOutput.Trim(),
+            [Text.UTF8Encoding]::new($false)
+          )
+          exit $probeExit
+
+      - name: Remove local private assignment material
+        if: always()
+        shell: powershell
+        env:
+          PRIVATE_ASSIGNMENT_PATH: ${{ steps.private-source.outputs.private_assignment_path }}
+        run: |
+          if ($env:PRIVATE_ASSIGNMENT_PATH -and (Test-Path -LiteralPath $env:PRIVATE_ASSIGNMENT_PATH)) {
+            Remove-Item -LiteralPath $env:PRIVATE_ASSIGNMENT_PATH -Force -ErrorAction SilentlyContinue
+          }
+          'SUBCHAT_HOST_PROMPT=' | Add-Content -LiteralPath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Return execution status to the public Issue
+        id: ack
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          SUBCHAT_HOST_RESULT_PATH: ${{ runner.temp }}\subchat-host-result.json
+          SUBCHAT_ASSISTANT_TURN_RESULT_PATH: ${{ runner.temp }}\subchat-assistant-turn-start.json
+        with:
+          script: |
+            const fs = require('fs');
+            const issueNumber = Number(process.env.SUBCHAT_HOST_ISSUE_NUMBER);
+            let result;
+            try {
+              result = JSON.parse(fs.readFileSync(process.env.SUBCHAT_HOST_RESULT_PATH, 'utf8'));
+            } catch {
+              result = {
+                status: 'ERROR', host_health: 'FAIL', authentication: 'UNKNOWN',
+                target_kind: 'PROJECT', ordinary_conversation_created: false,
+                project_landing_used: false, project_conversation_created: false,
+                fixed_prompt_submitted: false, conversation_url: null,
+                rate_limit_notice_seen: false, rate_limit_notice_dismissal_count: 0,
+                rate_limit_notice_dismissed: false, rate_limit_recovered: false,
+                retry_allowed_now: false, assistant_output_accessed: false
+              };
+            }
+            let assistantStart = {
+              status: 'FAIL', prompt_page_found: false, assistant_turn_started: false,
+              assistant_turn_start_evidence: 'NONE', reason: 'PROBE_RESULT_MISSING',
+              assistant_output_accessed: false
+            };
+            try {
+              assistantStart = JSON.parse(fs.readFileSync(process.env.SUBCHAT_ASSISTANT_TURN_RESULT_PATH, 'utf8'));
+            } catch {}
+
+            const assistantTurnStarted = assistantStart.status === 'PASS' &&
+              assistantStart.prompt_page_found === true &&
+              assistantStart.assistant_turn_started === true &&
+              assistantStart.assistant_output_accessed === false;
+            const passed = result.status === 'PASS' &&
+              result.authentication === 'AUTHENTICATED' &&
+              result.target_kind === 'PROJECT' &&
+              result.project_landing_used === true &&
+              result.project_conversation_created === true &&
+              result.ordinary_conversation_created === true &&
+              result.fixed_prompt_submitted === true &&
+              result.assistant_output_accessed === false &&
+              assistantTurnStarted;
+            const correlationSha256 = process.env.SUBCHAT_RESULT_CORRELATION_SHA256 || '';
+            if (!/^[0-9a-f]{64}$/.test(correlationSha256)) {
+              core.setFailed('Structured result correlation commitment is missing or invalid.');
+              return;
+            }
+            const comment = [
+              'SUBCHAT_PRIVATE_LOCAL_HOST_ACK_V1',
+              '',
+              `status: ${passed ? 'PASS' : 'FAIL'}`,
+              `issue: #${issueNumber}`,
+              `run_id: ${context.runId}`,
+              `host_health: ${result.host_health || 'UNKNOWN'}`,
+              `auth_state: ${result.authentication || 'UNKNOWN'}`,
+              `prompt_submission: ${result.fixed_prompt_submitted === true ? 'PASS' : 'FAIL'}`,
+              `assistant_turn_started: ${assistantTurnStarted ? 'PASS' : 'FAIL'}`,
+              `assistant_turn_start_evidence: ${assistantStart.assistant_turn_start_evidence || 'NONE'}`,
+              'private_assignment_source: LOCAL_GH_INJECTION',
+              'private_assignment_exposed_publicly: false',
+              'result_protocol: SUBCHAT_WORKER_RESULT_V1',
+              `correlation_sha256: ${correlationSha256}`,
+              `assistant_output_accessed: ${result.assistant_output_accessed === true || assistantStart.assistant_output_accessed === true ? 'true' : 'false'}`
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: comment
+            });
+            core.setOutput('host_passed', passed ? 'true' : 'false');
+            if (!passed) core.setFailed('Private local host dispatch did not pass all transport gates.');
+
+  validate-worker-result:
+    needs: private-local-host
+    if: needs.private-local-host.result == 'success' && needs.private-local-host.outputs.host_passed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    env:
+      SUBCHAT_HOST_ISSUE_NUMBER: ${{ github.event.issue.number }}
+      SUBCHAT_RESULT_ALLOWED_APPS_JSON: '[{"id":"1144995","slug":"chatgpt-codex-connector"}]'
+      SUBCHAT_RESULT_WAIT_SECONDS: '5400'
+      SUBCHAT_RESULT_POLL_SECONDS: '120'
+      SUBCHAT_RESULT_CORRELATION_SHA256: ${{ needs.private-local-host.outputs.correlation_sha256 }}
+    steps:
+      - name: Check out validator code
+        uses: actions/checkout@v4
+
+      - name: Wait for and validate native Worker result
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const path = require('path');
+            const protocol = require(path.join(
+              process.env.GITHUB_WORKSPACE,
+              '.github',
+              'scripts',
+              'subchat-worker-result-v1.cjs'
+            ));
+            const issueNumber = Number(process.env.SUBCHAT_HOST_ISSUE_NUMBER);
+            const waitSeconds = Number(process.env.SUBCHAT_RESULT_WAIT_SECONDS);
+            const pollSeconds = Number(process.env.SUBCHAT_RESULT_POLL_SECONDS);
+            const validationContext = {
+              dispatchIssue: issueNumber,
+              sourceIssue: issueNumber,
+              workflowRunId: String(context.runId),
+              correlationSha256: process.env.SUBCHAT_RESULT_CORRELATION_SHA256,
+              repositoryOwner: context.repo.owner,
+              allowedApps: process.env.SUBCHAT_RESULT_ALLOWED_APPS_JSON
+            };
+            const fetchSelection = async () => {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100
+              });
+              return protocol.selectFirstValidResult(
+                comments.map(comment => ({ ...comment, issue_number: issueNumber })),
+                validationContext
+              );
+            };
+
+            const deadline = Date.now() + waitSeconds * 1000;
+            let selection = await fetchSelection();
+            while (!selection.accepted && Date.now() < deadline) {
+              await new Promise(resolve => setTimeout(resolve, pollSeconds * 1000));
+              selection = await fetchSelection();
+            }
+            if (!selection.accepted) {
+              const timeout = protocol.timeoutOutcome(selection);
+              const diagnosticCodes = [...new Set(timeout.diagnostics.map(item => item.code))];
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: [
+                  'SUBCHAT_RESULT_VALIDATION_V1', '', 'status: RESULT_TIMEOUT',
+                  `issue: #${issueNumber}`, `run_id: ${context.runId}`,
+                  `diagnostics: ${diagnosticCodes.length ? diagnosticCodes.join(',') : 'NONE'}`,
+                  'assistant_output_accessed: false'
+                ].join('\n')
+              });
+              core.setFailed('RESULT_TIMEOUT');
+              return;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 5 * 1000));
+            selection = await fetchSelection();
+            const accepted = selection.accepted;
+            const diagnosticCodes = [...new Set(selection.diagnostics.map(item => item.code))];
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: [
+                'SUBCHAT_RESULT_VALIDATION_V1', '', 'status: ACCEPTED',
+                `issue: #${issueNumber}`, `run_id: ${context.runId}`,
+                `worker_status: ${accepted.payload.status}`,
+                `worker_result_comment_id: ${accepted.commentId}`,
+                `worker_result_comment_url: ${accepted.htmlUrl || 'NOT_AVAILABLE'}`,
+                `worker_author: ${accepted.author}`,
+                `worker_app_id: ${accepted.app.id}`,
+                `worker_app_slug: ${accepted.app.slug}`,
+                `duplicate_valid_results: ${selection.duplicates.length}`,
+                `diagnostics: ${diagnosticCodes.length ? diagnosticCodes.join(',') : 'NONE'}`,
+                'assistant_output_accessed: false'
+              ].join('\n')
+            });
