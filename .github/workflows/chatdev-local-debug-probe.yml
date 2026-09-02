@@ -1,0 +1,160 @@
+name: Chat Dev Local Debug Probe
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe:
+    if: >-
+      github.event.issue.user.login == github.repository_owner &&
+      github.event.issue.title == 'CHATDEV-LOCAL-DEBUG-PROBE'
+    runs-on: [self-hosted, windows, chatgpt-host]
+    timeout-minutes: 5
+    steps:
+      - name: Probe local debug capabilities
+        id: probe
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Find-CommandPath([string]$Name) {
+            $cmd = Get-Command $Name -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($cmd) {
+              if ($cmd.Source) { return $cmd.Source }
+              if ($cmd.Path) { return $cmd.Path }
+            }
+            return $null
+          }
+
+          $codexPath = Find-CommandPath 'codex'
+          if (-not $codexPath) {
+            $roots = @(
+              (Join-Path $env:APPDATA 'npm'),
+              (Join-Path $env:USERPROFILE '.cache\codex-runtimes')
+            )
+            foreach ($root in $roots) {
+              if (-not (Test-Path -LiteralPath $root)) { continue }
+              $candidate = Get-ChildItem -LiteralPath $root -File -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -in @('codex.exe','codex.cmd','codex.ps1') } |
+                Select-Object -First 1
+              if ($candidate) {
+                $codexPath = $candidate.FullName
+                break
+              }
+            }
+          }
+
+          $codexInstalled = [bool]$codexPath
+          $codexAuthenticated = $false
+          $codexVersion = 'NONE'
+          if ($codexInstalled) {
+            try {
+              $versionOut = & $codexPath --version 2>$null | Select-Object -First 1
+              if ($LASTEXITCODE -eq 0 -and $versionOut) { $codexVersion = ($versionOut -replace '[\r\n]+',' ') }
+              & $codexPath login status *> $null
+              $codexAuthenticated = ($LASTEXITCODE -eq 0)
+            } catch {
+              $codexAuthenticated = $false
+            }
+          }
+
+          $ghPath = Find-CommandPath 'gh'
+          $ghInstalled = [bool]$ghPath
+          $ghAuthenticated = $false
+          $privateRepoReadable = $false
+          $privateIssueReadable = $false
+          if ($ghInstalled) {
+            Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
+            Remove-Item Env:GITHUB_TOKEN -ErrorAction SilentlyContinue
+            try {
+              & $ghPath auth status --hostname github.com *> $null
+              $ghAuthenticated = ($LASTEXITCODE -eq 0)
+            } catch {
+              $ghAuthenticated = $false
+            }
+            if ($ghAuthenticated) {
+              try {
+                & $ghPath api repos/ga815647/fellow-aiden-context *> $null
+                $privateRepoReadable = ($LASTEXITCODE -eq 0)
+              } catch {
+                $privateRepoReadable = $false
+              }
+              try {
+                & $ghPath api repos/ga815647/fellow-aiden-context/issues/2 *> $null
+                $privateIssueReadable = ($LASTEXITCODE -eq 0)
+              } catch {
+                $privateIssueReadable = $false
+              }
+            }
+          }
+
+          $hostRoot = 'E:\CS\program\agent-\ordinary-chat-poc3b'
+          $hostPresent = Test-Path -LiteralPath (Join-Path $hostRoot 'persistent-host.mjs')
+          $lastResultPresent = Test-Path -LiteralPath (Join-Path $hostRoot 'last-result.json')
+          $dedicatedChromeRunning = $false
+          try {
+            $dedicatedChromeRunning = [bool](Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+              Where-Object {
+                $_.Name -match '^(chrome|msedge)\.exe$' -and
+                $_.CommandLine -like '*ChatDev*PersistentChatHost*chrome-user-data*'
+              } |
+              Select-Object -First 1)
+          } catch {
+            $dedicatedChromeRunning = $false
+          }
+
+          @(
+            "codex_installed=$($codexInstalled.ToString().ToLowerInvariant())",
+            "codex_authenticated=$($codexAuthenticated.ToString().ToLowerInvariant())",
+            "codex_version=$codexVersion",
+            "gh_installed=$($ghInstalled.ToString().ToLowerInvariant())",
+            "gh_authenticated=$($ghAuthenticated.ToString().ToLowerInvariant())",
+            "private_repo_readable=$($privateRepoReadable.ToString().ToLowerInvariant())",
+            "private_issue_readable=$($privateIssueReadable.ToString().ToLowerInvariant())",
+            "host_present=$($hostPresent.ToString().ToLowerInvariant())",
+            "last_result_present=$($lastResultPresent.ToString().ToLowerInvariant())",
+            "dedicated_chrome_running=$($dedicatedChromeRunning.ToString().ToLowerInvariant())"
+          ) | Set-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Return probe summary
+        uses: actions/github-script@v7
+        env:
+          CODEX_INSTALLED: ${{ steps.probe.outputs.codex_installed }}
+          CODEX_AUTHENTICATED: ${{ steps.probe.outputs.codex_authenticated }}
+          CODEX_VERSION: ${{ steps.probe.outputs.codex_version }}
+          GH_INSTALLED: ${{ steps.probe.outputs.gh_installed }}
+          GH_AUTHENTICATED: ${{ steps.probe.outputs.gh_authenticated }}
+          PRIVATE_REPO_READABLE: ${{ steps.probe.outputs.private_repo_readable }}
+          PRIVATE_ISSUE_READABLE: ${{ steps.probe.outputs.private_issue_readable }}
+          HOST_PRESENT: ${{ steps.probe.outputs.host_present }}
+          LAST_RESULT_PRESENT: ${{ steps.probe.outputs.last_result_present }}
+          DEDICATED_CHROME_RUNNING: ${{ steps.probe.outputs.dedicated_chrome_running }}
+        with:
+          script: |
+            const lines = [
+              'CHATDEV_LOCAL_DEBUG_PROBE_V1',
+              '',
+              'status: PASS',
+              `codex_installed: ${process.env.CODEX_INSTALLED}`,
+              `codex_authenticated: ${process.env.CODEX_AUTHENTICATED}`,
+              `codex_version: ${process.env.CODEX_VERSION}`,
+              `gh_installed: ${process.env.GH_INSTALLED}`,
+              `gh_authenticated: ${process.env.GH_AUTHENTICATED}`,
+              `private_repo_readable: ${process.env.PRIVATE_REPO_READABLE}`,
+              `private_issue_readable: ${process.env.PRIVATE_ISSUE_READABLE}`,
+              `host_present: ${process.env.HOST_PRESENT}`,
+              `last_result_present: ${process.env.LAST_RESULT_PRESENT}`,
+              `dedicated_chrome_running: ${process.env.DEDICATED_CHROME_RUNNING}`,
+              'assistant_output_accessed: false'
+            ];
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: lines.join('\n')
+            });
