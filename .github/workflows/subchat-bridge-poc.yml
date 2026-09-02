@@ -63,8 +63,40 @@ jobs:
     timeout-minutes: 10
     env:
       SUBCHAT_HOST_ISSUE_NUMBER: ${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number }}
-      SUBCHAT_HOST_PROMPT: ${{ github.event_name == 'issues' && github.event.issue.body || inputs.prompt }}
+      SUBCHAT_HOST_ASSIGNMENT: ${{ github.event_name == 'issues' && github.event.issue.body || inputs.prompt }}
+      SUBCHAT_RESULT_ALLOWED_APPS_JSON: '[{"id":"1144995","slug":"chatgpt-codex-connector"}]'
+      SUBCHAT_RESULT_WAIT_SECONDS: '300'
+      SUBCHAT_RESULT_POLL_SECONDS: '5'
     steps:
+      - name: Check out validator code
+        uses: actions/checkout@v4
+
+      - name: Prepare structured result correlation
+        id: correlation
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const path = require('path');
+            const protocol = require(path.join(
+              process.env.GITHUB_WORKSPACE,
+              '.github',
+              'scripts',
+              'subchat-worker-result-v1.cjs'
+            ));
+            const issueNumber = Number(process.env.SUBCHAT_HOST_ISSUE_NUMBER);
+            const { nonce, correlationSha256 } = protocol.prepareCorrelation();
+            core.setSecret(nonce);
+            const prompt = protocol.buildWorkerPrompt({
+              assignment: process.env.SUBCHAT_HOST_ASSIGNMENT,
+              repository: `${context.repo.owner}/${context.repo.repo}`,
+              dispatchIssue: issueNumber,
+              workflowRunId: String(context.runId),
+              nonce
+            });
+            core.exportVariable('SUBCHAT_HOST_PROMPT', prompt);
+            core.exportVariable('SUBCHAT_RESULT_CORRELATION_SHA256', correlationSha256);
+            core.setOutput('correlation_sha256', correlationSha256);
+
       - name: Submit payload through the persistent ChatGPT host
         id: execute
         shell: powershell
@@ -113,6 +145,7 @@ jobs:
           }
 
       - name: Return execution status to the issue
+        id: ack
         if: always()
         uses: actions/github-script@v7
         env:
@@ -157,6 +190,11 @@ jobs:
               result.fixed_prompt_submitted === true &&
               result.assistant_output_accessed === false;
             const rateLimited = result.status === 'RATE_LIMITED';
+            const correlationSha256 = process.env.SUBCHAT_RESULT_CORRELATION_SHA256 || '';
+            if (!/^[0-9a-f]{64}$/.test(correlationSha256)) {
+              core.setFailed('Structured result correlation commitment is missing or invalid.');
+              return;
+            }
             const rateLimitNotice = rateLimited
               ? 'BLOCKED'
               : result.rate_limit_notice_seen === true && result.rate_limit_recovered === true
@@ -176,6 +214,8 @@ jobs:
               `conversation_creation: ${result.ordinary_conversation_created === true ? 'PASS' : 'FAIL'}`,
               `prompt_submission: ${result.fixed_prompt_submitted === true ? 'PASS' : 'FAIL'}`,
               `conversation_url: ${result.conversation_url || 'NOT_AVAILABLE'}`,
+              'result_protocol: SUBCHAT_WORKER_RESULT_V1',
+              `correlation_sha256: ${correlationSha256}`,
               `rate_limit_notice: ${rateLimitNotice}`,
               `rate_limit_dismissal_count: ${Number.isInteger(result.rate_limit_dismissal_count) ? result.rate_limit_dismissal_count : 0}`,
               `retry_allowed_now: ${result.retry_allowed_now === true ? 'true' : 'false'}`,
@@ -183,14 +223,116 @@ jobs:
               `assistant_output_accessed: ${result.assistant_output_accessed === true ? 'true' : 'false'}`
             ].join('\n');
 
-            await github.rest.issues.createComment({
+            const { data: ack } = await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
               body: comment
             });
+            core.setOutput('host_passed', passed ? 'true' : 'false');
+            core.setOutput('ack_comment_id', String(ack.id));
+            core.setOutput('ack_comment_url', ack.html_url);
             if (!passed) {
               core.setFailed(rateLimited
                 ? 'Persistent ChatGPT host could not restore progress after the rate-limit UI notice.'
                 : 'Persistent ChatGPT host execution failed.');
             }
+
+      - name: Wait for and validate native worker result
+        id: result
+        if: steps.ack.outputs.host_passed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const path = require('path');
+            const protocol = require(path.join(
+              process.env.GITHUB_WORKSPACE,
+              '.github',
+              'scripts',
+              'subchat-worker-result-v1.cjs'
+            ));
+            const issueNumber = Number(process.env.SUBCHAT_HOST_ISSUE_NUMBER);
+            const waitSeconds = Number(process.env.SUBCHAT_RESULT_WAIT_SECONDS);
+            const pollSeconds = Number(process.env.SUBCHAT_RESULT_POLL_SECONDS);
+            if (!Number.isInteger(waitSeconds) || waitSeconds < 30 || waitSeconds > 480 ||
+                !Number.isInteger(pollSeconds) || pollSeconds < 2 || pollSeconds > 30) {
+              core.setFailed('Structured result wait configuration is invalid.');
+              return;
+            }
+            const validationContext = {
+              dispatchIssue: issueNumber,
+              sourceIssue: issueNumber,
+              workflowRunId: String(context.runId),
+              correlationSha256: process.env.SUBCHAT_RESULT_CORRELATION_SHA256,
+              repositoryOwner: context.repo.owner,
+              allowedApps: process.env.SUBCHAT_RESULT_ALLOWED_APPS_JSON
+            };
+            const fetchSelection = async () => {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100
+              });
+              return protocol.selectFirstValidResult(
+                comments.map(comment => ({ ...comment, issue_number: issueNumber })),
+                validationContext
+              );
+            };
+
+            const deadline = Date.now() + waitSeconds * 1000;
+            let selection = await fetchSelection();
+            while (!selection.accepted && Date.now() < deadline) {
+              await new Promise(resolve => setTimeout(resolve, pollSeconds * 1000));
+              selection = await fetchSelection();
+            }
+
+            if (!selection.accepted) {
+              const timeout = protocol.timeoutOutcome(selection);
+              const diagnosticCodes = [...new Set(timeout.diagnostics.map(item => item.code))];
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: [
+                  'SUBCHAT_RESULT_VALIDATION_V1',
+                  '',
+                  'status: RESULT_TIMEOUT',
+                  `issue: #${issueNumber}`,
+                  `run_id: ${context.runId}`,
+                  `diagnostics: ${diagnosticCodes.length ? diagnosticCodes.join(',') : 'NONE'}`,
+                  'assistant_output_accessed: false'
+                ].join('\n')
+              });
+              core.setFailed('RESULT_TIMEOUT');
+              return;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, Math.min(pollSeconds, 5) * 1000));
+            selection = await fetchSelection();
+            const accepted = selection.accepted;
+            const diagnosticCodes = [...new Set(selection.diagnostics.map(item => item.code))];
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: [
+                'SUBCHAT_RESULT_VALIDATION_V1',
+                '',
+                'status: ACCEPTED',
+                `issue: #${issueNumber}`,
+                `run_id: ${context.runId}`,
+                `worker_status: ${accepted.payload.status}`,
+                `worker_result_comment_id: ${accepted.commentId}`,
+                `worker_result_comment_url: ${accepted.htmlUrl || 'NOT_AVAILABLE'}`,
+                `worker_author: ${accepted.author}`,
+                `worker_app_id: ${accepted.app.id}`,
+                `worker_app_slug: ${accepted.app.slug}`,
+                `duplicate_valid_results: ${selection.duplicates.length}`,
+                `diagnostics: ${diagnosticCodes.length ? diagnosticCodes.join(',') : 'NONE'}`,
+                'assistant_output_accessed: false'
+              ].join('\n')
+            });
+            core.setOutput('validator_outcome', 'ACCEPTED');
+            core.setOutput('worker_result_comment_id', String(accepted.commentId));
+            core.setOutput('worker_result_comment_url', accepted.htmlUrl || '');

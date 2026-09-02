@@ -12,7 +12,7 @@
     "host:stop": "node persistent-host.mjs stop",
     "host:send-test": "node persistent-host.mjs send-test",
     "host:dispatch": "node persistent-host.mjs dispatch",
-    "test": "node --test rate-limit-policy.test.mjs"
+    "test": "node --test rate-limit-policy.test.mjs ../.github/scripts/subchat-worker-result-v1.test.cjs"
   },
   "dependencies": {
     "playwright-core": "latest"

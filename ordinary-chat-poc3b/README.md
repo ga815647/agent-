@@ -67,6 +67,14 @@ Remove-Item Env:\SUBCHAT_HOST_PROMPT
 
 The adapted `subchat-bridge-poc.yml` supports owner-only, exact-title `SUBCHAT-HOST-POC` issue events and optional diagnostic `workflow_dispatch` tests. Automatic Issue dispatch is active from the default branch and is routed exclusively to the labeled persistent Windows host.
 
+### Structured result return v0
+
+For each accepted dispatch, Actions creates a fresh 128-bit lowercase hexadecimal nonce, masks it before any transport, and adds the raw value only to the worker prompt. `SUBCHAT_HOST_ACK` stores `SUBCHAT_WORKER_RESULT_V1` plus the SHA-256 commitment, never the raw nonce. The persistent-host controller still reports browser-side submission metadata only and never reads assistant output.
+
+The worker writes its native GitHub result to the originating Issue as exactly two lines: the `SUBCHAT_WORKER_RESULT_V1` marker and one compact JSON object. The GitHub-side validator polls only that Issue's comments, checks the schema, Issue/run correlation, nonce commitment, repository-owner author, and configured native GitHub App provenance, then accepts the earliest valid comment by `created_at` and comment ID. Later valid comments are diagnostics only. Missing results end as `RESULT_TIMEOUT`; they are not converted into a fabricated worker status or redispatched.
+
+The PoC wait and poll durations and the small GitHub App allowlist are explicit workflow configuration. The accepted connector identity is intentionally not embedded in the V1 schema or validator module, so it can be updated independently. No result artifact is uploaded.
+
 ### Soft rate-limit resilience
 
 The controller recognizes the ChatGPT `太多要求` / `Too many requests` modal only within dialog/alert/modal UI. During one dispatch it may dismiss the recognized acknowledgment (`知道了`, `確定`, `OK`, or an equivalent supported label) each time it blocks progress, then verify that the composer, Project route, conversation route, or prompt-submission evidence recovers. Repeated notices are not a blocking condition by count alone. The existing bounded operation deadline remains authoritative, and recovery continues only within the same dispatch; it does not enqueue or submit a second job.
