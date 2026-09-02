@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   drive-backend-only:
-    if: github.event.issue.number == 79 && github.actor == github.repository_owner && github.event.comment.body == 'RUN_DRIVE_BACKEND_ONLY_V2'
+    if: github.event.issue.number == 79 && github.actor == github.repository_owner && github.event.comment.body == 'RUN_DRIVE_BACKEND_ONLY_V3'
     runs-on: [self-hosted, windows, chatgpt-host]
     timeout-minutes: 10
     env:
@@ -29,15 +29,12 @@ jobs:
           $gh = Get-Command gh.exe -ErrorAction SilentlyContinue
           if (-not $gh) { $gh = Get-Command gh -ErrorAction SilentlyContinue }
           if (-not $gh) { throw 'Local GitHub CLI was not found.' }
-
           $sourceBody = & $gh.Source api "repos/$env:GITHUB_REPOSITORY/issues/67" --jq '.body' 2>$null | Out-String
           if ($LASTEXITCODE -ne 0) { throw 'Could not read source assignment.' }
           $sourceBody = $sourceBody.Trim()
-
           $m = [regex]::Match($sourceBody, '(?s)(1\. Read only exact Doc .*?)(?=\r?\n5\.)')
           if (-not $m.Success) { throw 'Could not isolate Drive-only steps from source Issue #67.' }
           $driveSteps = $m.Groups[1].Value.Trim()
-
           $prefix = @(
             'ROLE=Execution-Worker',
             '',
@@ -51,7 +48,6 @@ jobs:
           ) -join "`n"
           $suffix = "`n`nAfter the exact existing Drive result Doc edit attempt, STOP. Do not perform any other side effect."
           $assignment = $prefix + $driveSteps + $suffix
-
           [IO.File]::WriteAllText($env:SOURCE_ASSIGNMENT_PATH, $assignment, [Text.UTF8Encoding]::new($false))
           "source_assignment_path=$env:SOURCE_ASSIGNMENT_PATH" | Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8
 
@@ -132,15 +128,25 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
               body: [
-                'SUBCHAT_DRIVE_BACKEND_ONLY_HOST_ACK_V1','',
+                'SUBCHAT_DRIVE_BACKEND_ONLY_HOST_ACK_V2','',
                 `status: ${passed ? 'PASS' : 'FAIL'}`,
                 `run_id: ${context.runId}`,
+                `controller_status: ${result.status || 'UNKNOWN'}`,
+                `host_health: ${result.host_health || 'UNKNOWN'}`,
+                `auth_state: ${result.authentication || 'UNKNOWN'}`,
+                `target_kind: ${result.target_kind || 'UNKNOWN'}`,
+                `project_landing: ${result.project_landing_used === true ? 'PASS' : 'FAIL'}`,
+                `project_conversation: ${result.project_conversation_created === true ? 'PASS' : 'FAIL'}`,
+                `conversation_creation: ${result.ordinary_conversation_created === true ? 'PASS' : 'FAIL'}`,
                 `prompt_submission: ${result.fixed_prompt_submitted === true ? 'PASS' : 'FAIL'}`,
                 `assistant_turn_started: ${assistantStarted ? 'PASS' : 'FAIL'}`,
                 `assistant_turn_start_evidence: ${start.assistant_turn_start_evidence || 'NONE'}`,
+                `rate_limit_notice: ${result.rate_limit_notice_seen === true ? (result.rate_limit_recovered === true ? 'RECOVERED' : 'SEEN_NOT_RECOVERED') : 'NOT_SEEN'}`,
+                `rate_limit_dismissal_count: ${Number(result.rate_limit_notice_dismissal_count || 0)}`,
+                `retry_allowed_now: ${result.retry_allowed_now === true ? 'true' : 'false'}`,
                 'worker_public_result_required: false',
                 'backend_verdict: ORCHESTRATOR_READS_DRIVE_RESULT_DOC',
-                'assistant_output_accessed: false'
+                `assistant_output_accessed: ${result.assistant_output_accessed === true || start.assistant_output_accessed === true ? 'true' : 'false'}`
               ].join('\n')
             });
             if (!passed) core.setFailed('Drive backend-only dispatch did not pass transport gates.');
