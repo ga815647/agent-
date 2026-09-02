@@ -18,11 +18,13 @@ CONTEXT LIFECYCLE
        ↓
    fresh Orchestrator rehydrate
        ↓
-EXECUTION ROUTING
+O THIN FRAME
  ├─ O DIRECT
- └─ BOUNDED WORKER
+ ├─ BOUNDED WORKER
+ └─ narrow pre-execution Sol-low only when routing/decomposition is
+    materially consequential if wrong AND genuinely uncertain
        ↓
-O provisional decision when a consequential commitment exists
+O accepts evidence / forms provisional decision when a consequential commitment exists
        ↓
 REASONING BRAKE
  ├─ not trigger-qualified → skip
@@ -31,6 +33,10 @@ REASONING BRAKE
        ↓
 O acceptance / final
 ```
+
+Both Worker and Sol-low always return to the Orchestrator. The Orchestrator alone owns routing, Worker-result acceptance, formal state transitions, and final synthesis.
+
+The normal path is fixed and evidence-first. Do not run a mandatory FRAME after every Worker/Sol return. Re-enter THIN FRAME only when a return materially changes routing-relevant state or otherwise requires rerouting, such as Worker `BLOCKED` / `ERROR`, transport or capability failure, or a newly exposed execution/evidence dependency.
 
 General Codex execution is not part of this frozen production baseline. The live Codex lane is the Sol-low Reviewer used by Reasoning Brake v0. A future Codex executor may be added without changing the lifecycle or reasoning-brake semantics.
 
@@ -66,6 +72,11 @@ Ordinary rollover/routing judgment does not itself require Sol-low unless it cre
 
 Execution routing is separate from ROLLOVER and Reasoning Brake.
 
+### THIN FRAME
+Run one compact Orchestrator routing pass at the start of the task/epoch. It establishes the real goal and decides whether direct execution or bounded delegation is the better route.
+
+THIN FRAME is not a full cognitive ceremony and is not automatically rerun after every return. Re-enter it only when routing-relevant state materially changes or the current route requires replacement/recomposition.
+
 ### O DIRECT
 Use the Orchestrator directly when delegation overhead exceeds the likely context/latency benefit, or when the task requires continuous Orchestrator judgment.
 
@@ -79,6 +90,28 @@ Current automated Worker transport default:
 - only the Orchestrator accepts results and owns formal state transitions.
 
 Worker handoffs contain only the execution contract needed by the Worker: objective, scope/out-of-scope, authority/read path, validation/acceptance criteria, stop condition, and return evidence. Do not inject legacy Harness latch or Orchestrator cognitive ceremony into Worker prompts.
+
+### Narrow pre-execution review exception
+
+Do not make Sol-low a universal pre-Worker gate.
+
+Before Worker dispatch, one Sol-low review is allowed only when the proposed routing/decomposition is itself both:
+- materially consequential if wrong; and
+- genuinely uncertain.
+
+Sol-low returns to the Orchestrator and has no dispatch authority. The Orchestrator resolves the review and decides whether/how to dispatch.
+
+### Return / reroute semantics
+
+A Worker/Sol return normally continues along the fixed path without a fresh FRAME pass.
+
+Re-enter THIN FRAME only when routing-relevant state materially changes or a reroute is required. Examples include:
+- Worker `BLOCKED` / `ERROR` or transport/capability failure;
+- evidence that reveals a new substantial execution dependency;
+- a Sol challenge that exposes a material evidence gap needing Worker execution;
+- another return that invalidates the current decomposition even though the top-level user objective is unchanged.
+
+This conditional escape preserves retry/replacement capability without turning the Orchestrator into a one-action-per-FRAME event loop.
 
 ### Automated-dispatch fallback
 
@@ -101,6 +134,8 @@ Examples that normally do not trigger solely because they involve judgment:
 - simple status/acceptance against an explicit deterministic contract;
 - small reversible operational choices.
 
+The narrow pre-execution exception above applies only when routing/decomposition itself becomes a consequential uncertain commitment. It does not widen the normal Reasoning Brake trigger to ordinary routing.
+
 External profile:
 - `gpt-5.6-sol`;
 - reasoning `low`;
@@ -112,6 +147,8 @@ External profile:
 External result:
 - `PASS` → continue;
 - `CHALLENGE` → O must resolve, verify, or reject the material issue before commitment.
+
+If a post-decision Sol challenge exposes a material evidence gap, the Orchestrator may dispatch a bounded Worker, accept the returned evidence, and rebuild the provisional decision. Do not automatically run a second Sol-low; rerun it only if the rebuilt commitment independently remains trigger-qualified.
 
 External failure/unsafe packet:
 - fail open only with respect to the external dependency;
@@ -137,7 +174,10 @@ Reasoning Brake privacy is independently handled: unsafe/private decision packet
 
 Frozen baseline:
 - ROLLOVER lifecycle semantics;
+- O-centered THIN FRAME with fixed evidence-first main path;
 - O DIRECT vs bounded Worker separation;
+- narrow pre-execution Sol-low only for materially risky + genuinely uncertain routing/decomposition;
+- conditional THIN FRAME re-entry only on material routing-state change / reroute need;
 - fresh-Chat Worker transport default and Orchestrator acceptance authority;
 - automatic-dispatch → viable manual-prompt fallback semantics;
 - Worker prompts exclude legacy Harness latch/cognitive ceremony;
@@ -154,9 +194,13 @@ Do not expand the control plane merely to make it more symmetric. Add a new lane
 
 ## 7. Evidence
 
-Reasoning Brake: Issues #49, #51–#55, #58.
+Reasoning Brake: Issues #49, #51–#55, #58, #65–#66.
 Rollover semantics: existing durable Orchestrator rollover checkpoints plus Reasoning Brake review Issue #57.
 Private artifact boundary: Issues #33, #34, #35, #40, #45.
+
+Control architecture representative-trace validation:
+- Issue #65 rejected mandatory per-return FRAME and established the fixed evidence-first main path + narrow pre-execution review exception.
+- Issue #66 validated simple/direct, obvious bounded Worker, evidence-ready consequential decision, risky/uncertain pre-Sol, post-Sol hidden evidence gap, plus an adversarial unchanged-objective Worker-BLOCKED reroute trace.
 
 ## 8. Next priority
 
