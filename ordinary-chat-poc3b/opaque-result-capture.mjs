@@ -11,6 +11,8 @@ const PROMPT = String(process.env.SUBCHAT_HOST_PROMPT || '').trim();
 const RUN_ID = String(process.env.CHATDEV_RESULT_RUN_ID || '').trim();
 const WAIT_MS = Number(process.env.CHATDEV_RESULT_WAIT_MS || 180000);
 const POLL_MS = 350;
+const COPY_MAX_ATTEMPTS = 3;
+const COPY_RETRY_BACKOFF_MS = 450;
 const DEFAULT_SPOOL_ROOT = path.join(
   process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'),
   'ChatDev',
@@ -333,24 +335,43 @@ async function main() {
     return;
   }
 
-  const marker = `CHATDEV_CLIPBOARD_PRECAPTURE_${RUN_ID}_${crypto.randomBytes(8).toString('hex')}`;
-  try {
-    setClipboardMarker(marker);
-    await clickCopy(target, terminal.copyRect);
-  } catch {
-    out(failure('COPY_BUTTON_INVOCATION_FAILED', {
-      conversation_correlated: true,
-      generation_terminal: true
-    }));
-    process.exitCode = 1;
-    return;
+  let copied = null;
+  let copyAttempts = 0;
+  let lastCopyFailure = 'CLIPBOARD_COPY_UNCONFIRMED';
+  while (!copied && copyAttempts < COPY_MAX_ATTEMPTS) {
+    copyAttempts += 1;
+    const marker = `CHATDEV_CLIPBOARD_PRECAPTURE_${RUN_ID}_${copyAttempts}_${crypto.randomBytes(8).toString('hex')}`;
+    try {
+      const latest = await turnState(target);
+      if (!latest.assistantPresent || latest.stopControlPresent) {
+        lastCopyFailure = 'CORRELATED_ASSISTANT_TURN_NO_LONGER_TERMINAL';
+        break;
+      }
+      if (latest.turnRect && !latest.copyRect) {
+        await moveMouse(target, latest.turnRect).catch(() => {});
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+      const ready = await turnState(target);
+      if (!ready.copyRect) {
+        lastCopyFailure = 'COPY_BUTTON_NOT_ACTIONABLE';
+      } else {
+        setClipboardMarker(marker);
+        await clickCopy(target, ready.copyRect);
+        copied = await waitForClipboardChange(marker, 4000);
+        if (!copied) lastCopyFailure = 'CLIPBOARD_COPY_UNCONFIRMED';
+      }
+    } catch {
+      lastCopyFailure = 'COPY_BUTTON_INVOCATION_FAILED';
+    }
+    if (!copied && copyAttempts < COPY_MAX_ATTEMPTS) {
+      await new Promise(resolve => setTimeout(resolve, COPY_RETRY_BACKOFF_MS));
+    }
   }
-
-  const copied = await waitForClipboardChange(marker);
   if (!copied) {
-    out(failure('CLIPBOARD_COPY_UNCONFIRMED', {
+    out(failure(lastCopyFailure, {
       conversation_correlated: true,
-      generation_terminal: true
+      generation_terminal: true,
+      copy_attempts: copyAttempts
     }));
     process.exitCode = 1;
     return;
@@ -384,6 +405,7 @@ async function main() {
     run_id: RUN_ID,
     captured_at: new Date().toISOString(),
     capture_method: 'COPY_BUTTON',
+    copy_attempts: copyAttempts,
     conversation_correlation: {
       conversation_url: target.url,
       prompt_sha256: sha256Bytes(Buffer.from(PROMPT, 'utf8')),
@@ -410,6 +432,7 @@ async function main() {
     conversation_correlated: true,
     generation_terminal: true,
     capture_method: 'COPY_BUTTON',
+    copy_attempts: copyAttempts,
     assistant_turn_index: terminal.assistantTurnIndex,
     message_structural_index: terminal.structuralIndex,
     result_byte_length: resultBytes.length,
