@@ -1,0 +1,313 @@
+name: Chat Dev Opaque Result Transport PoC
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  opaque-result-e2e:
+    if: >-
+      github.actor == github.repository_owner &&
+      github.event.issue.title == 'CHATDEV-OPAQUE-RESULT-TRANSPORT-POC' &&
+      github.event.comment.body == 'RUN_OPAQUE_RESULT_E2E_V1'
+    runs-on: [self-hosted, windows, chatgpt-host]
+    timeout-minutes: 15
+    steps:
+      - name: Check out transport code
+        uses: actions/checkout@v4
+
+      - name: Validate rate-limit policy and capture code
+        id: validate
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+          if (-not $nodeCommand) {
+            $runtimeRoot = Join-Path $env:USERPROFILE '.cache\codex-runtimes'
+            $nodeCommand = Get-ChildItem -LiteralPath $runtimeRoot -Filter node.exe -File -Recurse -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -like '*\dependencies\node\bin\node.exe' } |
+              Select-Object -First 1
+          }
+          if (-not $nodeCommand) { throw 'Node.js was not found on the persistent host.' }
+          $nodePath = if ($nodeCommand.Source) { $nodeCommand.Source } else { $nodeCommand.FullName }
+          $sourceRoot = Join-Path $env:GITHUB_WORKSPACE 'ordinary-chat-poc3b'
+          & $nodePath --check (Join-Path $sourceRoot 'rate-limit-policy.mjs')
+          if ($LASTEXITCODE -ne 0) { throw 'rate-limit-policy.mjs syntax check failed.' }
+          & $nodePath --test (Join-Path $sourceRoot 'rate-limit-policy.test.mjs')
+          if ($LASTEXITCODE -ne 0) { throw 'rate-limit-policy tests failed.' }
+          & $nodePath --check (Join-Path $sourceRoot 'opaque-result-capture.mjs')
+          if ($LASTEXITCODE -ne 0) { throw 'opaque-result-capture.mjs syntax check failed.' }
+
+      - name: Deploy bounded rate-limit policy to live host
+        id: deploy
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'ordinary-chat-poc3b\rate-limit-policy.mjs'
+          $targetRoot = 'E:\CS\program\agent-\ordinary-chat-poc3b'
+          $target = Join-Path $targetRoot 'rate-limit-policy.mjs'
+          if (-not (Test-Path -LiteralPath (Join-Path $targetRoot 'persistent-host.mjs'))) {
+            throw 'Live persistent host was not found.'
+          }
+          function Get-Sha256([string]$Path) {
+            $stream = [System.IO.File]::OpenRead($Path)
+            try {
+              $sha = [System.Security.Cryptography.SHA256]::Create()
+              try { return ([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-', '').ToLowerInvariant() }
+              finally { $sha.Dispose() }
+            }
+            finally { $stream.Dispose() }
+          }
+          $staged = "$target.chatdev-stage"
+          Copy-Item -LiteralPath $source -Destination $staged -Force
+          if ((Get-Sha256 $source) -ne (Get-Sha256 $staged)) { throw 'Staged rate-limit policy hash mismatch.' }
+          Move-Item -LiteralPath $staged -Destination $target -Force
+          if ((Get-Sha256 $source) -ne (Get-Sha256 $target)) { throw 'Deployed rate-limit policy hash mismatch.' }
+
+      - name: Build fresh fixed Worker artifact prompt
+        id: prompt
+        shell: powershell
+        env:
+          PROMPT_PATH: ${{ runner.temp }}\chatdev-opaque-result-prompt.txt
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $nonceBytes = [Security.Cryptography.RandomNumberGenerator]::GetBytes(16)
+          $nonce = [Convert]::ToHexString($nonceBytes).ToLowerInvariant()
+          $artifact = @(
+            '# CHATDEV_OPAQUE_RESULT_V1',
+            '',
+            "run_nonce: $nonce",
+            'line_alpha: orchid-maple-17',
+            'line_beta: cedar-river-29',
+            "tail: END_$($nonce.Substring(0,12))"
+          ) -join "`n"
+          $prompt = @(
+            'ROLE=Bounded-Worker',
+            '',
+            'Return exactly the Markdown artifact below and nothing else.',
+            'Do not use any tool or connector.',
+            'Do not explain, summarize, or wrap it in an extra code fence.',
+            '',
+            $artifact
+          ) -join "`n"
+          [IO.File]::WriteAllText($env:PROMPT_PATH, $prompt, [Text.UTF8Encoding]::new($false))
+          "prompt_path=$env:PROMPT_PATH" | Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8
+
+      - name: Dispatch fresh Worker
+        id: execute
+        shell: powershell
+        continue-on-error: true
+        env:
+          PROMPT_PATH: ${{ steps.prompt.outputs.prompt_path }}
+          HOST_RESULT_PATH: ${{ runner.temp }}\chatdev-opaque-host-result.json
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $launcher = 'E:\CS\program\agent-\ordinary-chat-poc3b\persistent-host.ps1'
+          if (-not (Test-Path -LiteralPath $launcher)) { throw 'Persistent-host launcher not found.' }
+          $env:SUBCHAT_HOST_PROMPT = [IO.File]::ReadAllText($env:PROMPT_PATH, [Text.Encoding]::UTF8)
+          $controllerOutput = & $launcher dispatch 2>&1 | Out-String
+          $controllerExit = $LASTEXITCODE
+          [IO.File]::WriteAllText($env:HOST_RESULT_PATH, $controllerOutput.Trim(), [Text.UTF8Encoding]::new($false))
+          exit $controllerExit
+
+      - name: Confirm assistant turn started without reading output
+        id: assistant-start
+        if: steps.execute.outcome == 'success'
+        shell: powershell
+        continue-on-error: true
+        env:
+          PROMPT_PATH: ${{ steps.prompt.outputs.prompt_path }}
+          START_RESULT_PATH: ${{ runner.temp }}\chatdev-opaque-assistant-start.json
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+          if (-not $nodeCommand) {
+            $runtimeRoot = Join-Path $env:USERPROFILE '.cache\codex-runtimes'
+            $nodeCommand = Get-ChildItem -LiteralPath $runtimeRoot -Filter node.exe -File -Recurse -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -like '*\dependencies\node\bin\node.exe' } | Select-Object -First 1
+          }
+          if (-not $nodeCommand) { throw 'Node.js was not found.' }
+          $nodePath = if ($nodeCommand.Source) { $nodeCommand.Source } else { $nodeCommand.FullName }
+          $env:SUBCHAT_HOST_PROMPT = [IO.File]::ReadAllText($env:PROMPT_PATH, [Text.Encoding]::UTF8)
+          $probe = Join-Path $env:GITHUB_WORKSPACE 'ordinary-chat-poc3b\assistant-turn-start-probe.mjs'
+          $probeOutput = & $nodePath $probe 2>&1 | Out-String
+          $probeExit = $LASTEXITCODE
+          [IO.File]::WriteAllText($env:START_RESULT_PATH, $probeOutput.Trim(), [Text.UTF8Encoding]::new($false))
+          exit $probeExit
+
+      - name: Capture correlated terminal assistant turn through native Copy
+        id: capture
+        if: steps.assistant-start.outcome == 'success'
+        shell: powershell
+        continue-on-error: true
+        env:
+          PROMPT_PATH: ${{ steps.prompt.outputs.prompt_path }}
+          CAPTURE_RESULT_PATH: ${{ runner.temp }}\chatdev-opaque-capture-result.json
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+          if (-not $nodeCommand) {
+            $runtimeRoot = Join-Path $env:USERPROFILE '.cache\codex-runtimes'
+            $nodeCommand = Get-ChildItem -LiteralPath $runtimeRoot -Filter node.exe -File -Recurse -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -like '*\dependencies\node\bin\node.exe' } | Select-Object -First 1
+          }
+          if (-not $nodeCommand) { throw 'Node.js was not found.' }
+          $nodePath = if ($nodeCommand.Source) { $nodeCommand.Source } else { $nodeCommand.FullName }
+          $env:SUBCHAT_HOST_PROMPT = [IO.File]::ReadAllText($env:PROMPT_PATH, [Text.Encoding]::UTF8)
+          $env:CHATDEV_RESULT_RUN_ID = $env:GITHUB_RUN_ID
+          $capture = Join-Path $env:GITHUB_WORKSPACE 'ordinary-chat-poc3b\opaque-result-capture.mjs'
+          $captureOutput = & $nodePath $capture 2>&1 | Out-String
+          $captureExit = $LASTEXITCODE
+          [IO.File]::WriteAllText($env:CAPTURE_RESULT_PATH, $captureOutput.Trim(), [Text.UTF8Encoding]::new($false))
+          exit $captureExit
+
+      - name: Durably write opaque spool through local gh
+        id: private-write
+        if: steps.capture.outcome == 'success'
+        shell: powershell
+        continue-on-error: true
+        env:
+          CAPTURE_RESULT_PATH: ${{ runner.temp }}\chatdev-opaque-capture-result.json
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
+          Remove-Item Env:GITHUB_TOKEN -ErrorAction SilentlyContinue
+          $gh = Get-Command gh.exe -ErrorAction SilentlyContinue
+          if (-not $gh) { $gh = Get-Command gh -ErrorAction SilentlyContinue }
+          if (-not $gh) { throw 'Local GitHub CLI was not found.' }
+          & $gh.Source auth status --hostname github.com *> $null
+          if ($LASTEXITCODE -ne 0) { throw 'Local gh is not authenticated.' }
+
+          $capture = Get-Content -LiteralPath $env:CAPTURE_RESULT_PATH -Raw | ConvertFrom-Json
+          if ($capture.status -ne 'PASS') { throw 'Capture result is not PASS.' }
+
+          $runId = [string]$env:GITHUB_RUN_ID
+          $spoolRoot = Join-Path $env:LOCALAPPDATA 'ChatDev\PersistentChatHost\worker-results'
+          $runDir = Join-Path $spoolRoot $runId
+          $files = @('result.md', 'message.html', 'metadata.json')
+          foreach ($name in $files) {
+            if (-not (Test-Path -LiteralPath (Join-Path $runDir $name))) {
+              throw "Expected spool file missing: $name"
+            }
+          }
+
+          $resultPath = Join-Path $runDir 'result.md'
+          $stream = [IO.File]::OpenRead($resultPath)
+          try {
+            $sha = [Security.Cryptography.SHA256]::Create()
+            try { $localSha = ([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-', '').ToLowerInvariant() }
+            finally { $sha.Dispose() }
+          }
+          finally { $stream.Dispose() }
+          if ($localSha -ne [string]$capture.result_sha256) {
+            throw 'Local spool result hash does not match capture metadata.'
+          }
+
+          function Put-PrivateFile([string]$Name) {
+            $filePath = Join-Path $runDir $Name
+            $bytes = [IO.File]::ReadAllBytes($filePath)
+            $payload = @{
+              message = "chatdev opaque result transport PoC $runId $Name"
+              content = [Convert]::ToBase64String($bytes)
+            } | ConvertTo-Json -Compress
+            $payloadPath = Join-Path $env:RUNNER_TEMP ("chatdev-private-write-" + [Guid]::NewGuid().ToString('N') + '.json')
+            try {
+              [IO.File]::WriteAllText($payloadPath, $payload, [Text.UTF8Encoding]::new($false))
+              $apiPath = "repos/ga815647/fellow-aiden-context/contents/chatdev-worker-results/$runId/$Name"
+              $response = & $gh.Source api --method PUT $apiPath --input $payloadPath 2>&1 | Out-String
+              if ($LASTEXITCODE -ne 0) { throw "Private gh write failed for $Name" }
+              $json = $response | ConvertFrom-Json
+              if (-not $json.content.sha) { throw "Private gh write did not return a blob SHA for $Name" }
+            }
+            finally {
+              Remove-Item -LiteralPath $payloadPath -Force -ErrorAction SilentlyContinue
+            }
+          }
+
+          foreach ($name in $files) { Put-PrivateFile $name }
+          "private_write=PASS" | Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8
+
+      - name: Remove local prompt material
+        if: always()
+        shell: powershell
+        env:
+          PROMPT_PATH: ${{ steps.prompt.outputs.prompt_path }}
+        run: |
+          if ($env:PROMPT_PATH -and (Test-Path -LiteralPath $env:PROMPT_PATH)) {
+            Remove-Item -LiteralPath $env:PROMPT_PATH -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Return public-safe transport evidence
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          HOST_RESULT_PATH: ${{ runner.temp }}\chatdev-opaque-host-result.json
+          START_RESULT_PATH: ${{ runner.temp }}\chatdev-opaque-assistant-start.json
+          CAPTURE_RESULT_PATH: ${{ runner.temp }}\chatdev-opaque-capture-result.json
+          EXECUTE_OUTCOME: ${{ steps.execute.outcome }}
+          START_OUTCOME: ${{ steps.assistant-start.outcome }}
+          CAPTURE_OUTCOME: ${{ steps.capture.outcome }}
+          PRIVATE_WRITE_OUTCOME: ${{ steps.private-write.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            const readJson = p => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return {}; } };
+            const host = readJson(process.env.HOST_RESULT_PATH);
+            const start = readJson(process.env.START_RESULT_PATH);
+            const capture = readJson(process.env.CAPTURE_RESULT_PATH);
+            const assistantStarted =
+              process.env.START_OUTCOME === 'success' &&
+              start.status === 'PASS' &&
+              start.prompt_page_found === true &&
+              start.assistant_turn_started === true &&
+              start.assistant_output_accessed === false;
+            const passed =
+              process.env.EXECUTE_OUTCOME === 'success' &&
+              host.status === 'PASS' &&
+              host.fixed_prompt_submitted === true &&
+              host.assistant_output_accessed === false &&
+              assistantStarted &&
+              process.env.CAPTURE_OUTCOME === 'success' &&
+              capture.status === 'PASS' &&
+              capture.conversation_correlated === true &&
+              capture.generation_terminal === true &&
+              capture.capture_method === 'COPY_BUTTON' &&
+              capture.assistant_output_transport_accessed === true &&
+              capture.assistant_output_semantically_accessed === false &&
+              process.env.PRIVATE_WRITE_OUTCOME === 'success';
+
+            const lines = [
+              'CHATDEV_OPAQUE_RESULT_TRANSPORT_HOST_ACK_V1',
+              '',
+              `status: ${passed ? 'PASS' : 'FAIL'}`,
+              `run_id: ${context.runId}`,
+              `controller_status: ${host.status || 'UNKNOWN'}`,
+              `prompt_submission: ${host.fixed_prompt_submitted === true ? 'PASS' : 'FAIL'}`,
+              `assistant_turn_started: ${assistantStarted ? 'PASS' : 'FAIL'}`,
+              `assistant_turn_start_evidence: ${start.assistant_turn_start_evidence || 'NONE'}`,
+              `generation_terminal: ${capture.generation_terminal === true ? 'PASS' : 'FAIL'}`,
+              `capture_method: ${capture.capture_method || 'NONE'}`,
+              `result_byte_length: ${Number(capture.result_byte_length || 0)}`,
+              `result_sha256: ${capture.result_sha256 || 'NONE'}`,
+              `html_sha256: ${capture.html_sha256 || 'NONE'}`,
+              `assistant_turn_index: ${Number.isInteger(capture.assistant_turn_index) ? capture.assistant_turn_index : -1}`,
+              `message_structural_index: ${Number.isInteger(capture.message_structural_index) ? capture.message_structural_index : -1}`,
+              `private_write: ${process.env.PRIVATE_WRITE_OUTCOME === 'success' ? 'PASS' : 'FAIL'}`,
+              `rate_limit_notice_seen: ${host.rate_limit_notice_seen === true ? 'true' : 'false'}`,
+              `rate_limit_dismissal_count: ${Number(host.rate_limit_dismissal_count || host.rate_limit_notice_dismissal_count || 0)}`,
+              `rate_limit_recovered: ${host.rate_limit_recovered === true ? 'true' : 'false'}`,
+              'public_payload_included: false',
+              `assistant_output_transport_accessed: ${capture.assistant_output_transport_accessed === true ? 'true' : 'false'}`,
+              'assistant_output_semantically_accessed: false'
+            ];
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: lines.join('\n')
+            });
+            if (!passed) core.setFailed('Opaque Worker result transport PoC did not pass all gates.');

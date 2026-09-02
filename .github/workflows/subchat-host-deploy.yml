@@ -26,6 +26,7 @@ jobs:
           $sourceRoot = Join-Path $env:GITHUB_WORKSPACE 'ordinary-chat-poc3b'
           $targetRoot = 'E:\CS\program\agent-\ordinary-chat-poc3b'
           $deployOrder = @(
+            'rate-limit-policy.mjs',
             'dispatch-evidence.mjs',
             'persistent-host-dispatch.mjs',
             'persistent-host.ps1'
@@ -76,7 +77,7 @@ jobs:
               throw "Deploy source was not found: $source"
             }
           }
-          foreach ($name in @('persistent-host-dispatch.mjs', 'dispatch-evidence.mjs')) {
+          foreach ($name in @('rate-limit-policy.mjs', 'persistent-host-dispatch.mjs', 'dispatch-evidence.mjs')) {
             $source = Join-Path $sourceRoot $name
             & $nodePath --check $source
             if ($LASTEXITCODE -ne 0) {
@@ -120,6 +121,6 @@ jobs:
                 'status: PASS',
                 `run_id: ${context.runId}`,
                 `commit: ${context.sha}`,
-                'scope: dispatch-evidence.mjs,persistent-host-dispatch.mjs,persistent-host.ps1'
+                'scope: rate-limit-policy.mjs,dispatch-evidence.mjs,persistent-host-dispatch.mjs,persistent-host.ps1'
               ].join('\n')
             });

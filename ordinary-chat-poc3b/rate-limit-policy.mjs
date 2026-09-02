@@ -1,7 +1,18 @@
 export const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 10 * 60 * 1000;
+export const DEFAULT_SOFT_RATE_LIMIT_MAX_ATTEMPTS = 6;
+export const DEFAULT_SOFT_RATE_LIMIT_BACKOFF_MS = 400;
 
 function normalizedText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function boundedInteger(value, fallback, min, max) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export function classifyRateLimitCopy(value) {
@@ -16,7 +27,7 @@ export function classifyRateLimitCopy(value) {
 }
 
 export function isRateLimitDismissLabel(value) {
-  return /^(?:知道了|確定|OK|Okay|Got it|Dismiss)$/i.test(normalizedText(value));
+  return /^(?:知道了|我知道了|了解|確定|OK|Okay|Got it|Dismiss)$/i.test(normalizedText(value));
 }
 
 export function createRateLimitTracker() {
@@ -25,21 +36,49 @@ export function createRateLimitTracker() {
     noticeCount: 0,
     dismissalAttempts: 0,
     dismissalCount: 0,
+    dismissControlMisses: 0,
     recoveryCount: 0,
     noticeDismissed: false,
     recovered: false
   };
 }
 
-export async function handleSoftRateLimitNotice(tracker, adapter, initialNotice = null) {
+export async function handleSoftRateLimitNotice(tracker, adapter, initialNotice = null, options = {}) {
+  const maxAttempts = boundedInteger(
+    options.maxAttempts,
+    DEFAULT_SOFT_RATE_LIMIT_MAX_ATTEMPTS,
+    1,
+    20
+  );
+  const backoffMs = boundedInteger(
+    options.backoffMs,
+    DEFAULT_SOFT_RATE_LIMIT_BACKOFF_MS,
+    0,
+    5000
+  );
+
   let notice = initialNotice || await adapter.detect();
   if (!notice) return { kind: 'NONE' };
 
   while (notice) {
     tracker.noticeSeen = true;
     tracker.noticeCount += 1;
+
     if (!notice.dismissible) {
-      return { kind: 'BLOCKED', reason: 'RATE_LIMIT_MODAL_NOT_DISMISSIBLE' };
+      tracker.dismissControlMisses = (tracker.dismissControlMisses || 0) + 1;
+      if (tracker.dismissControlMisses >= maxAttempts) {
+        return { kind: 'BLOCKED', reason: 'RATE_LIMIT_DISMISS_CONTROL_UNAVAILABLE' };
+      }
+      if (backoffMs) await sleep(backoffMs);
+      notice = await adapter.detect();
+      if (!notice) {
+        return { kind: 'BLOCKED', reason: 'RATE_LIMIT_RECOVERY_UNCONFIRMED' };
+      }
+      continue;
+    }
+
+    if (tracker.dismissalAttempts >= maxAttempts) {
+      return { kind: 'BLOCKED', reason: 'RATE_LIMIT_DISMISS_ATTEMPTS_EXHAUSTED' };
     }
 
     tracker.dismissalAttempts += 1;
@@ -48,22 +87,37 @@ export async function handleSoftRateLimitNotice(tracker, adapter, initialNotice 
       tracker.dismissalCount += 1;
       tracker.noticeDismissed = true;
     } catch {
-      return { kind: 'BLOCKED', reason: 'RATE_LIMIT_DISMISS_FAILED' };
+      if (tracker.dismissalAttempts >= maxAttempts) {
+        return { kind: 'BLOCKED', reason: 'RATE_LIMIT_DISMISS_FAILED' };
+      }
+      if (backoffMs) await sleep(backoffMs);
+      notice = await adapter.detect();
+      if (!notice) {
+        return { kind: 'BLOCKED', reason: 'RATE_LIMIT_RECOVERY_UNCONFIRMED' };
+      }
+      continue;
     }
 
     const recovery = await adapter.waitForRecovery(notice);
-    if (recovery.persistentModal) {
-      return { kind: 'BLOCKED', reason: 'RATE_LIMIT_MODAL_PERSISTENT' };
-    }
     if (recovery.recovered) {
       tracker.recoveryCount += 1;
       tracker.recovered = true;
       return { kind: 'RECOVERED' };
     }
-    if (recovery.nextNotice) {
-      notice = recovery.nextNotice;
+
+    if (tracker.dismissalAttempts >= maxAttempts && (recovery.persistentModal || recovery.nextNotice)) {
+      return { kind: 'BLOCKED', reason: 'RATE_LIMIT_DISMISS_ATTEMPTS_EXHAUSTED' };
+    }
+
+    if (recovery.persistentModal || recovery.nextNotice) {
+      if (backoffMs) await sleep(backoffMs);
+      notice = recovery.nextNotice || await adapter.detect();
+      if (!notice) {
+        return { kind: 'BLOCKED', reason: 'RATE_LIMIT_RECOVERY_UNCONFIRMED' };
+      }
       continue;
     }
+
     return { kind: 'BLOCKED', reason: 'RATE_LIMIT_RECOVERY_TIMEOUT' };
   }
 
@@ -82,6 +136,7 @@ export function buildRateLimitBlockedState({ now = Date.now(), cooldownMs = DEFA
     rate_limit_notice_count: tracker?.noticeCount || 0,
     rate_limit_dismissal_attempted: (tracker?.dismissalAttempts || 0) > 0,
     rate_limit_dismissal_count: tracker?.dismissalCount || 0,
+    rate_limit_dismiss_control_miss_count: tracker?.dismissControlMisses || 0,
     rate_limit_notice_dismissed: tracker?.noticeDismissed === true,
     rate_limit_recovered: false,
     retry_allowed_now: false
