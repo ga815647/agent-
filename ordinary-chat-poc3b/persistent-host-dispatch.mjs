@@ -21,6 +21,11 @@ function jsonOut(value) {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
+function exitWithResult(value, code) {
+  jsonOut(value);
+  process.exit(code);
+}
+
 function fallbackResult(reason) {
   return {
     status: 'ERROR',
@@ -137,9 +142,8 @@ async function waitForUserMessageEvidence(page, timeoutMs) {
 }
 
 async function recoverDispatch(result) {
-  let browser;
   try {
-    browser = await chromium.connectOverCDP(CDP_BASE);
+    const browser = await chromium.connectOverCDP(CDP_BASE);
     const context = browser.contexts()[0];
     if (!context) return { ...result, dispatch_recovery: 'NO_BROWSER_CONTEXT' };
     const page = await targetConversationPage(context);
@@ -184,13 +188,10 @@ const child = spawnSync(process.execPath, [CONTROLLER, 'dispatch'], {
 
 const original = parseControllerResult(child.stdout);
 if (!original) {
-  jsonOut(fallbackResult('CONTROLLER_OUTPUT_INVALID'));
-  process.exitCode = 1;
-} else if (!eligibleForRecovery(original)) {
-  jsonOut(original);
-  process.exitCode = child.status === 0 ? 0 : 1;
-} else {
-  const recovered = await recoverDispatch(original);
-  jsonOut(recovered);
-  process.exitCode = recovered.status === 'PASS' ? 0 : 1;
+  exitWithResult(fallbackResult('CONTROLLER_OUTPUT_INVALID'), 1);
 }
+if (!eligibleForRecovery(original)) {
+  exitWithResult(original, child.status === 0 ? 0 : 1);
+}
+const recovered = await recoverDispatch(original);
+exitWithResult(recovered, recovered.status === 'PASS' ? 0 : 1);
