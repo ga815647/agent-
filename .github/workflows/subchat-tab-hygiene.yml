@@ -1,0 +1,39 @@
+name: Subchat Persistent Host Tab Hygiene
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stale-tab-cleanup:
+    if: >-
+      (github.event_name == 'issues' &&
+       github.event.issue.title == 'SUBCHAT-HOST-POC' &&
+       github.actor == github.repository_owner) ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.actor == github.repository_owner)
+    runs-on: [self-hosted, windows, chatgpt-host]
+    timeout-minutes: 3
+    steps:
+      - name: Check out cleanup code
+        uses: actions/checkout@v4
+
+      - name: Close stale background ChatGPT conversation tabs
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+          if (-not $nodeCommand) {
+            $runtimeRoot = Join-Path $env:USERPROFILE '.cache\codex-runtimes'
+            $nodeCommand = Get-ChildItem -LiteralPath $runtimeRoot -Filter node.exe -File -Recurse -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -like '*\dependencies\node\bin\node.exe' } |
+              Select-Object -First 1
+          }
+          if (-not $nodeCommand) { exit 0 }
+          $nodePath = if ($nodeCommand.Source) { $nodeCommand.Source } else { $nodeCommand.FullName }
+          & $nodePath "$env:GITHUB_WORKSPACE\ordinary-chat-poc3b\stale-tab-cleanup.mjs" *> $null
+          exit 0

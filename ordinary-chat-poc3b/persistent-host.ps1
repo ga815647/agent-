@@ -20,6 +20,19 @@ if (-not $nodeCommand) {
 }
 
 $nodePath = if ($nodeCommand.Source) { $nodeCommand.Source } else { $nodeCommand.FullName }
+
+if ($Action -eq 'dispatch') {
+  $cleanup = Join-Path $PSScriptRoot 'stale-tab-cleanup.mjs'
+  if (Test-Path -LiteralPath $cleanup) {
+    try {
+      & $nodePath $cleanup *> $null
+    }
+    catch {
+      # Operational hygiene is fail-open and must not block Worker dispatch.
+    }
+  }
+}
+
 $controllerName = if ($Action -eq 'dispatch') { 'persistent-host-dispatch.mjs' } else { 'persistent-host.mjs' }
 $controller = Join-Path $PSScriptRoot $controllerName
 
