@@ -32,7 +32,9 @@ jobs:
           required = [
               'packet_class: PUBLIC_SAFE',
               'decision_id:',
+              'goal:',
               'provisional_decision:',
+              'established_facts:',
               'material_assumptions:',
               'evidence_pointers:',
               'known_uncertainty:',
