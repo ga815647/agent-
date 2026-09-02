@@ -1,0 +1,192 @@
+name: Chat Dev Reasoning Brake v0
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: codex-reasoning-brake-v0
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    if: >-
+      github.event.issue.user.login == github.repository_owner &&
+      startsWith(github.event.issue.title, 'CODEX-BRAKE-V0|')
+    runs-on: ubuntu-latest
+    outputs:
+      auth_ready: ${{ steps.gate.outputs.auth_ready }}
+      packet_valid: ${{ steps.gate.outputs.packet_valid }}
+    steps:
+      - id: gate
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python - <<'PY'
+          import os
+          body = os.environ.get('ISSUE_BODY', '')
+          required = [
+              'packet_class: PUBLIC_SAFE',
+              'decision_id:',
+              'provisional_decision:',
+              'material_assumptions:',
+              'evidence_pointers:',
+              'known_uncertainty:',
+          ]
+          valid = bool(body) and len(body) <= 8000 and all(token in body for token in required)
+          auth = bool(os.environ.get('CODEX_AUTH_JSON', '').strip())
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as f:
+              f.write(f'packet_valid={str(valid).lower()}\n')
+              f.write(f'auth_ready={str(auth).lower()}\n')
+          PY
+
+      - name: Report invalid packet
+        if: steps.gate.outputs.packet_valid != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body $'CODEX_BRAKE_V0_UNAVAILABLE\nstatus: UNAVAILABLE\nreason: INVALID_PACKET'
+
+      - name: Report missing auth
+        if: steps.gate.outputs.packet_valid == 'true' && steps.gate.outputs.auth_ready != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body $'CODEX_BRAKE_V0_UNAVAILABLE\nstatus: UNAVAILABLE\nreason: BLOCKED_AUTH'
+
+  falsifier:
+    needs: gate
+    if: needs.gate.outputs.packet_valid == 'true' && needs.gate.outputs.auth_ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      CODEX_HOME: /tmp/codex-home
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex@latest
+
+      - name: Restore ChatGPT subscription auth
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          mkdir -p "$CODEX_HOME"
+          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+          codex login status
+
+      - name: Build isolated falsifier prompt
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          BRAKE_DIR="$RUNNER_TEMP/reasoning-brake-v0"
+          mkdir -p "$BRAKE_DIR"
+          cp reasoning-brake-v0/FALSIFIER.md "$BRAKE_DIR/falsifier-contract.md"
+          printf '%s' "$ISSUE_BODY" > "$BRAKE_DIR/packet.txt"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          d = Path(os.environ['RUNNER_TEMP']) / 'reasoning-brake-v0'
+          contract = (d / 'falsifier-contract.md').read_text(encoding='utf-8')
+          packet = (d / 'packet.txt').read_text(encoding='utf-8')
+          (d / 'prompt.txt').write_text(contract + '\n\nPROVISIONAL DECISION PACKET:\n' + packet + '\n', encoding='utf-8')
+          PY
+
+      - name: Remove repository checkout before model execution
+        run: |
+          cd "$RUNNER_TEMP"
+          rm -rf "$GITHUB_WORKSPACE"
+
+      - name: Run Sol-low falsifier
+        id: codex
+        working-directory: ${{ runner.temp }}/reasoning-brake-v0
+        shell: bash
+        run: |
+          set +e
+          START=$(date +%s)
+          codex exec \
+            --model gpt-5.6-sol \
+            -c 'model_reasoning_effort="low"' \
+            --sandbox read-only \
+            --ignore-user-config \
+            --output-last-message raw-result.txt \
+            - < prompt.txt
+          RC=$?
+          END=$(date +%s)
+          echo "rc=$RC" >> "$GITHUB_OUTPUT"
+          echo "elapsed_seconds=$((END-START))" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Normalize result
+        id: normalize
+        if: steps.codex.outputs.rc == '0'
+        working-directory: ${{ runner.temp }}/reasoning-brake-v0
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          raw = Path('raw-result.txt').read_text(encoding='utf-8').strip()
+          rows = [line.strip() for line in raw.splitlines() if line.strip()]
+          values = {}
+          for line in rows:
+              if ':' in line:
+                  key, value = line.split(':', 1)
+                  values[key.strip()] = value.strip()
+          status = values.get('status')
+          required = ['material_issue', 'why_decision_changing', 'check_needed']
+          valid = status in {'PASS', 'CHALLENGE'} and all(k in values for k in required)
+          if valid:
+              # Keep the public comment compact even if the model ignored brevity.
+              for key in required:
+                  values[key] = ' '.join(values[key].split())[:700]
+              out = Path('normalized.txt')
+              out.write_text(
+                  f"status: {status}\n"
+                  f"material_issue: {values['material_issue']}\n"
+                  f"why_decision_changing: {values['why_decision_changing']}\n"
+                  f"check_needed: {values['check_needed']}\n",
+                  encoding='utf-8',
+              )
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as f:
+              f.write(f"valid={str(valid).lower()}\n")
+          PY
+
+      - name: Return valid brake result
+        if: steps.codex.outputs.rc == '0' && steps.normalize.outputs.valid == 'true'
+        working-directory: ${{ runner.temp }}/reasoning-brake-v0
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ELAPSED: ${{ steps.codex.outputs.elapsed_seconds }}
+        run: |
+          {
+            echo 'CODEX_BRAKE_V0_COMPLETE'
+            cat normalized.txt
+            echo 'model: gpt-5.6-sol'
+            echo 'reasoning: low'
+            echo "elapsed_seconds: ${ELAPSED}"
+          } > comment.txt
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body-file comment.txt
+
+      - name: Report Codex execution failure
+        if: steps.codex.outputs.rc != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body $'CODEX_BRAKE_V0_UNAVAILABLE\nstatus: UNAVAILABLE\nreason: CODEX_EXIT'
+
+      - name: Report invalid model result
+        if: steps.codex.outputs.rc == '0' && steps.normalize.outputs.valid != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body $'CODEX_BRAKE_V0_UNAVAILABLE\nstatus: UNAVAILABLE\nreason: INVALID_RESULT'
