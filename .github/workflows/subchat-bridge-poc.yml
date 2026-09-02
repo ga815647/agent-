@@ -14,10 +14,6 @@ on:
         required: true
         type: string
 
-concurrency:
-  group: persistent-chatgpt-host-poc
-  cancel-in-progress: false
-
 permissions:
   contents: read
   issues: write
@@ -61,12 +57,12 @@ jobs:
        github.actor == github.repository_owner)
     runs-on: [self-hosted, windows, chatgpt-host]
     timeout-minutes: 10
+    outputs:
+      host_passed: ${{ steps.ack.outputs.host_passed }}
+      correlation_sha256: ${{ steps.correlation.outputs.correlation_sha256 }}
     env:
       SUBCHAT_HOST_ISSUE_NUMBER: ${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number }}
       SUBCHAT_HOST_ASSIGNMENT: ${{ github.event_name == 'issues' && github.event.issue.body || inputs.prompt }}
-      SUBCHAT_RESULT_ALLOWED_APPS_JSON: '[{"id":"1144995","slug":"chatgpt-codex-connector"}]'
-      SUBCHAT_RESULT_WAIT_SECONDS: '300'
-      SUBCHAT_RESULT_POLL_SECONDS: '5'
     steps:
       - name: Check out validator code
         uses: actions/checkout@v4
@@ -238,9 +234,23 @@ jobs:
                 : 'Persistent ChatGPT host execution failed.');
             }
 
+  validate-worker-result:
+    needs: persistent-host-poc
+    if: needs.persistent-host-poc.result == 'success' && needs.persistent-host-poc.outputs.host_passed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    env:
+      SUBCHAT_HOST_ISSUE_NUMBER: ${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number }}
+      SUBCHAT_RESULT_ALLOWED_APPS_JSON: '[{"id":"1144995","slug":"chatgpt-codex-connector"}]'
+      SUBCHAT_RESULT_WAIT_SECONDS: '5400'
+      SUBCHAT_RESULT_POLL_SECONDS: '120'
+      SUBCHAT_RESULT_CORRELATION_SHA256: ${{ needs.persistent-host-poc.outputs.correlation_sha256 }}
+    steps:
+      - name: Check out validator code
+        uses: actions/checkout@v4
+
       - name: Wait for and validate native worker result
         id: result
-        if: steps.ack.outputs.host_passed == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -254,8 +264,8 @@ jobs:
             const issueNumber = Number(process.env.SUBCHAT_HOST_ISSUE_NUMBER);
             const waitSeconds = Number(process.env.SUBCHAT_RESULT_WAIT_SECONDS);
             const pollSeconds = Number(process.env.SUBCHAT_RESULT_POLL_SECONDS);
-            if (!Number.isInteger(waitSeconds) || waitSeconds < 30 || waitSeconds > 480 ||
-                !Number.isInteger(pollSeconds) || pollSeconds < 2 || pollSeconds > 30) {
+            if (!Number.isInteger(waitSeconds) || waitSeconds < 30 || waitSeconds > 7200 ||
+                !Number.isInteger(pollSeconds) || pollSeconds < 30 || pollSeconds > 300) {
               core.setFailed('Structured result wait configuration is invalid.');
               return;
             }
@@ -308,7 +318,7 @@ jobs:
               return;
             }
 
-            await new Promise(resolve => setTimeout(resolve, Math.min(pollSeconds, 5) * 1000));
+            await new Promise(resolve => setTimeout(resolve, 5 * 1000));
             selection = await fetchSelection();
             const accepted = selection.accepted;
             const diagnosticCodes = [...new Set(selection.diagnostics.map(item => item.code))];
