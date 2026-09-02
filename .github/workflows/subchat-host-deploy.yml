@@ -1,0 +1,97 @@
+name: Subchat Host Deploy
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  deploy-host-dispatch-layer:
+    if: >-
+      github.event.issue.title == 'SUBCHAT-HOST-DEPLOY' &&
+      github.actor == github.repository_owner
+    runs-on: [self-hosted, windows, chatgpt-host]
+    timeout-minutes: 5
+    steps:
+      - name: Check out controller source
+        uses: actions/checkout@v4
+
+      - name: Validate and deploy bounded dispatch layer
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sourceRoot = Join-Path $env:GITHUB_WORKSPACE 'ordinary-chat-poc3b'
+          $targetRoot = 'E:\CS\program\agent-\ordinary-chat-poc3b'
+          $files = @(
+            'persistent-host.ps1',
+            'persistent-host-dispatch.mjs',
+            'dispatch-evidence.mjs'
+          )
+
+          if (-not (Test-Path -LiteralPath $targetRoot)) {
+            throw "Live host root was not found: $targetRoot"
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $targetRoot 'node_modules\playwright-core'))) {
+            throw 'Live host Playwright runtime is missing.'
+          }
+
+          $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+          if (-not $nodeCommand) {
+            $runtimeRoot = Join-Path $env:USERPROFILE '.cache\codex-runtimes'
+            $nodeCommand = Get-ChildItem -LiteralPath $runtimeRoot -Filter node.exe -File -Recurse -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -like '*\dependencies\node\bin\node.exe' } |
+              Select-Object -First 1
+          }
+          if (-not $nodeCommand) {
+            throw 'Node.js was not found on the persistent host.'
+          }
+          $nodePath = if ($nodeCommand.Source) { $nodeCommand.Source } else { $nodeCommand.FullName }
+
+          foreach ($name in @('persistent-host-dispatch.mjs', 'dispatch-evidence.mjs')) {
+            $source = Join-Path $sourceRoot $name
+            if (-not (Test-Path -LiteralPath $source)) {
+              throw "Deploy source was not found: $source"
+            }
+            & $nodePath --check $source
+            if ($LASTEXITCODE -ne 0) {
+              throw "Node syntax check failed: $name"
+            }
+          }
+
+          foreach ($name in $files) {
+            $source = Join-Path $sourceRoot $name
+            $target = Join-Path $targetRoot $name
+            Copy-Item -LiteralPath $source -Destination $target -Force
+            $sourceHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+            $targetHash = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
+            if ($sourceHash -ne $targetHash) {
+              throw "Deployed file hash mismatch: $name"
+            }
+          }
+
+          $launcher = Join-Path $targetRoot 'persistent-host.ps1'
+          $status = & $launcher status 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 0) {
+            throw "Live host status check failed: $status"
+          }
+
+      - name: Acknowledge deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'SUBCHAT_HOST_DEPLOY_ACK',
+                '',
+                'status: PASS',
+                `run_id: ${context.runId}`,
+                `commit: ${context.sha}`,
+                'scope: persistent-host.ps1,persistent-host-dispatch.mjs,dispatch-evidence.mjs'
+              ].join('\n')
+            });
