@@ -77,6 +77,8 @@ Run one compact Orchestrator routing pass at the start of the task/epoch. It est
 
 THIN FRAME is not a full cognitive ceremony and is not automatically rerun after every return. Re-enter it only when routing-relevant state materially changes or the current route requires replacement/recomposition.
 
+Durable-term grounding is a precondition to reasoning, not a new stage. Before binding project-specific shorthand to a durable concept, resolve from the current conversation plus already-loaded durable truth first. Only when two or more materially different referents remain viable and choosing the wrong referent would materially change the answer, route, or commitment should the Orchestrator perform one targeted durable read or explicitly surface the ambiguity. Do not broadly reload the SSOT, and do not apply this rule to ordinary unambiguous or generic language.
+
 ### O DIRECT
 Use the Orchestrator directly when delegation overhead exceeds the likely context/latency benefit, or when the task requires continuous Orchestrator judgment.
 
@@ -175,6 +177,7 @@ Reasoning Brake privacy is independently handled: unsafe/private decision packet
 Frozen baseline:
 - ROLLOVER lifecycle semantics;
 - O-centered THIN FRAME with fixed evidence-first main path;
+- durable-term grounding only for materially ambiguous project-specific referents, using current context/already-loaded truth before any targeted durable read;
 - O DIRECT vs bounded Worker separation;
 - narrow pre-execution Sol-low only for materially risky + genuinely uncertain routing/decomposition;
 - conditional THIN FRAME re-entry only on material routing-state change / reroute need;
@@ -194,13 +197,14 @@ Do not expand the control plane merely to make it more symmetric. Add a new lane
 
 ## 7. Evidence
 
-Reasoning Brake: Issues #49, #51–#55, #58, #65–#66.
+Reasoning Brake: Issues #49, #51–#55, #58, #65–#66, #69.
 Rollover semantics: existing durable Orchestrator rollover checkpoints plus Reasoning Brake review Issue #57.
 Private artifact boundary: Issues #33, #34, #35, #40, #45.
 
 Control architecture representative-trace validation:
 - Issue #65 rejected mandatory per-return FRAME and established the fixed evidence-first main path + narrow pre-execution review exception.
 - Issue #66 validated simple/direct, obvious bounded Worker, evidence-ready consequential decision, risky/uncertain pre-Sol, post-Sol hidden evidence gap, plus an adversarial unchanged-objective Worker-BLOCKED reroute trace.
+- Issue #69 challenged the initial durable-term grounding trigger as potentially too lookup-heavy; O tightened it to current-context/already-loaded truth first, then validated seven representative traces with six requiring zero extra durable reads and one intended ambiguity case triggering grounding.
 
 ## 8. Next priority
 
