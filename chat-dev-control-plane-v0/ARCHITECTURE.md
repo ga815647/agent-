@@ -1,213 +1,161 @@
 # Chat Dev Control Plane v0
 
 Status: FROZEN BASELINE — ACTIVE / REVERSIBLE
+Promotion date: 2026-09-03
 Scope: cross-project Chat Dev orchestration semantics.
 
-This file freezes the smallest currently accepted control-plane architecture. It records only semantics that are active or sufficiently proven. Unresolved private/artifact transport remains explicitly outside the frozen baseline.
+Public architecture authority remains this repository. Private reviewer execution lives in `ga815647/chatdev-exec`; that private repo is execution/policy/result substrate, not architecture authority.
 
-## 1. Three orthogonal control planes
-
-Do not collapse context lifecycle, execution delegation, and decision braking into one router.
+## 1. Canonical path
 
 ```text
-USER
- ↓
-CONTEXT LIFECYCLE
- ├─ CONTINUE
- └─ ROLLOVER
-       ↓
-   fresh Orchestrator rehydrate
-       ↓
+new task / new Orchestrator epoch
+        ↓
 O THIN FRAME
- ├─ O DIRECT
- ├─ BOUNDED WORKER
- └─ narrow pre-execution Sol-low only when routing/decomposition is
-    materially consequential if wrong AND genuinely uncertain
-       ↓
-O accepts evidence / forms provisional decision when a consequential commitment exists
-       ↓
-REASONING BRAKE
- ├─ not trigger-qualified → skip
- └─ trigger-qualified → Sol-low external brake when safe/available
-                         └─ local minimum fallback if external unavailable/unsafe/timeout
-       ↓
-O acceptance / final
+   ├─ O DIRECT
+   └─ MANUAL BOUNDED WORKER
+         ↓
+      O emits ready-to-paste Worker prompt
+         ↓
+      user opens fresh Worker Chat
+         ↓
+      user pastes complete Worker result back to O
+         ↓
+      O validates / accepts evidence
+        ↓
+O forms provisional decision when a consequential commitment exists
+        ↓
+trigger-qualified?
+   ├─ no → O FINAL
+   └─ yes → PRIVATE REASONING BRAKE → O resolves → FINAL
 ```
 
-Both Worker and Sol-low always return to the Orchestrator. The Orchestrator alone owns routing, Worker-result acceptance, formal state transitions, and final synthesis.
+The Orchestrator alone owns routing, Worker-result acceptance, formal state transitions, commitment, and final synthesis.
 
-The normal path is fixed and evidence-first. Do not run a mandatory FRAME after every Worker/Sol return. Re-enter THIN FRAME only when a return materially changes routing-relevant state or otherwise requires rerouting, such as Worker `BLOCKED` / `ERROR`, transport or capability failure, or a newly exposed execution/evidence dependency.
+Worker/Sol return does not automatically rerun THIN FRAME. Re-enter only when routing-relevant state materially changes or rerouting is required.
 
-General Codex execution is not part of this frozen production baseline. The live Codex lane is the Sol-low Reviewer used by Reasoning Brake v0. A future Codex executor may be added without changing the lifecycle or reasoning-brake semantics.
+## 2. Context lifecycle
 
-## 2. ROLLOVER
-
-`ROLLOVER` is an Orchestrator lifecycle primitive: same-role context-epoch renewal.
-
-It is not ordinary execution routing, not lossy conversation compression, and not a role/owner handoff.
+`ROLLOVER` is same-role Orchestrator context-epoch renewal, not execution delegation or a role handoff.
 
 Sequence:
-1. Preserve only necessary edge state not already durable.
-2. End the current Orchestrator context epoch.
-3. Start a fresh Orchestrator with the same role, authority, and workstream.
-4. Rehydrate from `Chat Dev｜Current → relevant Project Profile → repo / durable truth → rollover checkpoint when present`.
-5. Re-run normal execution routing from the fresh context.
+1. Preserve only necessary non-durable edge state.
+2. End the current O epoch.
+3. Start a fresh O with the same role/authority/workstream.
+4. Rehydrate from `Chat Dev｜Current → relevant Project Profile → repo/current durable truth → rollover checkpoint when present`.
+5. Run THIN FRAME before execution routing.
 
-A rollover checkpoint may use handoff-style mechanics, but its semantics are continuity of the same Orchestrator role.
+Invariant:
 
-Checkpoint content should be minimal:
-- current accepted state;
-- unresolved open loops / blockers;
-- next objective;
-- required evidence pointers;
-- explicit do-not-reopen boundaries when needed.
+`new task / new Orchestrator epoch → THIN FRAME before execution routing`
 
-Do not copy durable truth into rollover prose merely to make the checkpoint self-contained. Prefer pointers. Do not summarize the whole conversation.
-
-Default trigger: rollover when current Orchestrator context quality has degraded enough that a fresh Orchestrator would materially improve the next substantial decision or Worker dispatch.
-
-Ordinary rollover/routing judgment does not itself require Sol-low unless it creates a consequential commitment with material decision risk.
+Do not restore a stateful Harness latch or mandatory FRAME/REVIEW/SYNTHESIZE ceremony.
 
 ## 3. Execution routing
 
-Execution routing is separate from ROLLOVER and Reasoning Brake.
-
-### THIN FRAME
-Run one compact Orchestrator routing pass at the start of the task/epoch. It establishes the real goal and decides whether direct execution or bounded delegation is the better route.
-
-THIN FRAME is not a full cognitive ceremony and is not automatically rerun after every return. Re-enter it only when routing-relevant state materially changes or the current route requires replacement/recomposition.
-
-Durable-term grounding is a precondition to reasoning, not a new stage. Before binding project-specific shorthand to a durable concept, resolve from the current conversation plus already-loaded durable truth first. Only when two or more materially different referents remain viable and choosing the wrong referent would materially change the answer, route, or commitment should the Orchestrator perform one targeted durable read or explicitly surface the ambiguity. Do not broadly reload the SSOT, and do not apply this rule to ordinary unambiguous or generic language.
-
 ### O DIRECT
-Use the Orchestrator directly when delegation overhead exceeds the likely context/latency benefit, or when the task requires continuous Orchestrator judgment.
+Use O directly when delegation overhead exceeds the likely context/latency benefit or the task requires continuous Orchestrator judgment.
 
-### BOUNDED WORKER
-Delegate substantial bounded execution when the Worker can reach a durable checkpoint without continuous Orchestrator judgment and doing the work directly would materially consume Orchestrator context.
+### MANUAL BOUNDED WORKER
+Delegate substantial bounded execution when a Worker can reach a useful checkpoint without continuous O judgment and doing the work directly would materially consume O context.
 
-Current automated Worker transport default:
-- fresh Chat in `Chat Dev | Ephemeral Workers`;
-- structured result is evidence only;
-- required Worker must reach a terminal state before the Orchestrator finalizes;
-- only the Orchestrator accepts results and owns formal state transitions.
+Production Worker transport is human-mediated:
+- O emits a compact routing header plus ready-to-paste bounded Worker prompt;
+- the user opens the intended fresh Worker Chat and pastes it;
+- the user pastes the complete Worker result back to O;
+- Worker result is evidence only; O accepts/rejects it;
+- if the Worker is required for the current operation, O does not make the dependent acceptance/final until the result returns, the user changes route, or the dependency becomes terminal in another explicit way.
 
-Worker handoffs contain only the execution contract needed by the Worker: objective, scope/out-of-scope, authority/read path, validation/acceptance criteria, stop condition, and return evidence. Do not inject legacy Harness latch or Orchestrator cognitive ceremony into Worker prompts.
+Normal runtime does **not** depend on automated fresh-Chat routing, local Chrome/Playwright, persistent Windows Worker hosts, result-return polling, or local spool transport.
 
-### Narrow pre-execution review exception
+Worker prompts contain only the execution contract needed by the Worker: objective, scope/out-of-scope, authority/read path, validation/acceptance criteria, stop condition, and return evidence. Do not inject legacy Harness latch/cognitive ceremony.
 
-Do not make Sol-low a universal pre-Worker gate.
-
-Before Worker dispatch, one Sol-low review is allowed only when the proposed routing/decomposition is itself both:
-- materially consequential if wrong; and
-- genuinely uncertain.
-
-Sol-low returns to the Orchestrator and has no dispatch authority. The Orchestrator resolves the review and decides whether/how to dispatch.
-
-### Return / reroute semantics
-
-A Worker/Sol return normally continues along the fixed path without a fresh FRAME pass.
-
-Re-enter THIN FRAME only when routing-relevant state materially changes or a reroute is required. Examples include:
-- Worker `BLOCKED` / `ERROR` or transport/capability failure;
-- evidence that reveals a new substantial execution dependency;
-- a Sol challenge that exposes a material evidence gap needing Worker execution;
-- another return that invalidates the current decomposition even though the top-level user objective is unchanged.
-
-This conditional escape preserves retry/replacement capability without turning the Orchestrator into a one-action-per-FRAME event loop.
-
-### Automated-dispatch fallback
-
-Automatic fresh-Chat dispatch is primary.
-
-If automatic transport is unavailable but manual fresh-Chat dispatch is still a genuinely different viable path, return a ready-to-paste bounded Worker prompt with the normal routing header.
-
-Do not pretend manual dispatch bypasses a shared ChatGPT capacity/rate-limit failure. In that case, the Orchestrator must reassess direct execution versus a real BLOCKED state rather than mechanically handing the user the same doomed prompt.
+### Narrow pre-execution Sol exception
+Sol is not a universal pre-Worker gate. One pre-execution review is allowed only when routing/decomposition itself is both materially consequential if wrong and genuinely uncertain. Sol returns to O and has no dispatch authority.
 
 ## 4. Reasoning Brake
 
 Canonical runtime: `reasoning-brake-v0/RUNTIME.md`.
 
-Sol-low is not a tax on all judgment. Trigger only for consequential commitments where a missed framing, assumption, alternative, or evidence problem could materially change the decision.
+Trigger only for consequential commitments where a missed framing, assumption, alternative, or evidence problem could materially change the decision. Ordinary reversible routing, simple deterministic acceptance, lookup, translation, and mechanical work do not trigger solely because judgment is present.
 
-Examples that normally do not trigger solely because they involve judgment:
-- tool choice;
-- ordinary reversible routing;
-- whether to rollover;
-- simple status/acceptance against an explicit deterministic contract;
-- small reversible operational choices.
+Production external lane:
 
-The narrow pre-execution exception above applies only when routing/decomposition itself becomes a consequential uncertain commitment. It does not widen the normal Reasoning Brake trigger to ordinary routing.
+```text
+O
+ ↓
+private Issue in ga815647/chatdev-exec
+ ↓
+repo-scoped VPS runner: chatdev-sol-vps
+ ↓
+persistent ChatGPT subscription Codex identity
+ ↓
+reviewer model / effort from reviewer-policy.json
+ ↓
+private Issue result
+ ↓
+O
+```
 
-External profile:
-- `gpt-5.6-sol`;
-- reasoning `low`;
-- one independent falsifier;
-- compact public-safe decision packet;
-- no full conversation;
-- Reviewer lane only, no Worker authority.
+Current reviewer policy at promotion: `gpt-5.6-sol`, reasoning `low`.
 
-External result:
-- `PASS` → continue;
-- `CHALLENGE` → O must resolve, verify, or reject the material issue before commitment.
+Properties:
+- exactly one falsifier;
+- Reviewer lane only, no Worker/dispatch authority;
+- model/effort are controlled by private repo policy, not VPS-local service config;
+- no `OPENAI_API_KEY` production dependency;
+- no desktop/Windows runtime dependency;
+- bounded private operational packets/results are allowed in the private repo;
+- credentials, reusable secrets, auth files, private keys, cookies, and session material are never packet/result content.
 
-If a post-decision Sol challenge exposes a material evidence gap, the Orchestrator may dispatch a bounded Worker, accept the returned evidence, and rebuild the provisional decision. Do not automatically run a second Sol-low; rerun it only if the rebuilt commitment independently remains trigger-qualified.
+`PASS` → continue. `CHALLENGE` → O must resolve, verify, narrow, or reject the material issue before commitment.
 
-External failure/unsafe packet:
-- fail open only with respect to the external dependency;
-- do not retry automatically or spawn a replacement subchat;
-- every trigger-qualified consequential decision still gets one local minimum falsification check before commitment;
-- high-cost/hard-to-reverse decisions with unresolved decision-controlling uncertainty remain tentative/blocked until verified.
+If the external reviewer is unsafe/unavailable/timed out, do not auto-retry and do not fall back to the retired Windows lane. Every trigger-qualified consequential decision receives one O-local minimum falsification check. High-cost/hard-to-reverse decisions with unresolved decision-controlling uncertainty remain tentative/blocked until verified.
 
-## 5. Privacy and artifact boundary
+Full VPS host reboot recovery was not live-validated at promotion. Service restart/reconnect and post-restart review were validated. This is an availability uncertainty, not permission to silently restore local orchestration substrate.
 
-The public GitHub control plane may carry only public-safe routing/evidence/result envelopes.
+## 5. Privacy / result boundary
 
-Private Worker artifact transport is NOT SOLVED in v0.
+Public `ga815647/agent-` carries architecture, contracts, public-safe evidence, and historical PoCs.
 
-Known evidence:
-- Drive create-new private result artifact: live BLOCKED by connector safety layer (Issue #33).
-- Drive edit-existing/private dataflow: no clean repeated E2E PASS; treat as UNPROVEN.
+Private `ga815647/chatdev-exec` is the proven bounded reviewer execution/result plane. Repeated ChatGPT-originated E2E tests demonstrated:
 
-Therefore do not claim a production private artifact container. Private payloads, long private outputs, binary artifacts, or private Worker↔O result material need a separately validated artifact plane.
+`ChatGPT → private Issue → VPS subscription reviewer → private result → ChatGPT readback`
 
-Reasoning Brake privacy is independently handled: unsafe/private decision packets are not externalized to the public GitHub brake path and use the local minimum falsification fallback.
+for both PASS and materially correct CHALLENGE cases.
 
-## 6. Frozen vs experimental
+This does **not** claim a general arbitrary-size private Worker artifact backend. The production Worker path is manual human-mediated handoff, so such a backend is not required by the baseline. A future project that needs machine-held private Worker binaries/large artifacts still requires its own validated artifact plane.
 
-Frozen baseline:
-- ROLLOVER lifecycle semantics;
-- O-centered THIN FRAME with fixed evidence-first main path;
-- durable-term grounding only for materially ambiguous project-specific referents, using current context/already-loaded truth before any targeted durable read;
-- O DIRECT vs bounded Worker separation;
-- narrow pre-execution Sol-low only for materially risky + genuinely uncertain routing/decomposition;
-- conditional THIN FRAME re-entry only on material routing-state change / reroute need;
-- fresh-Chat Worker transport default and Orchestrator acceptance authority;
-- automatic-dispatch → viable manual-prompt fallback semantics;
-- Worker prompts exclude legacy Harness latch/cognitive ceremony;
-- Reasoning Brake trigger boundary and local fallback invariant;
-- private artifact plane remains unresolved.
+GitHub Secrets are credentials only when genuinely required; they are not conversation, packet, result, or artifact transport.
 
-Observation-only / still experimental:
-- long-run Sol-low falsifier recall, false-positive rate, latency, and cost;
-- exact workload threshold for Worker admission / dispatch economics;
-- future general Codex executor lane;
-- private artifact backend selection.
+## 6. Retired normal-runtime paths
 
-Do not expand the control plane merely to make it more symmetric. Add a new lane only after a concrete failure mode or capability need is demonstrated.
+The following remain historical evidence but are retired from the production default:
+- automatic fresh-Chat Worker transport;
+- persistent Windows/browser Worker orchestration;
+- Windows self-hosted Sol-low production reviewer;
+- public `CODEX-BRAKE-V0|` Issue → Windows runner path;
+- copied `CODEX_AUTH_JSON` ephemeral auth;
+- API-key-backed remote Sol candidate from `SIMPLIFICATION_CANDIDATE_V1.md`.
 
-## 7. Evidence
+Do not use historical lanes as silent fallback. Re-activation requires an explicit new decision.
 
-Reasoning Brake: Issues #49, #51–#55, #58, #65–#66, #69.
-Rollover semantics: existing durable Orchestrator rollover checkpoints plus Reasoning Brake review Issue #57.
-Private artifact boundary: Issues #33, #34, #35, #40, #45.
+Local tooling may still be used to debug evidence that genuinely exists only on a local machine; that is maintenance/debug work, not a normal-runtime dependency.
 
-Control architecture representative-trace validation:
-- Issue #65 rejected mandatory per-return FRAME and established the fixed evidence-first main path + narrow pre-execution review exception.
-- Issue #66 validated simple/direct, obvious bounded Worker, evidence-ready consequential decision, risky/uncertain pre-Sol, post-Sol hidden evidence gap, plus an adversarial unchanged-objective Worker-BLOCKED reroute trace.
-- Issue #69 challenged the initial durable-term grounding trigger as potentially too lookup-heavy; O tightened it to current-context/already-loaded truth first, then validated seven representative traces with six requiring zero extra durable reads and one intended ambiguity case triggering grounding.
+## 7. Durable-term grounding
 
-## 8. Next priority
+Before binding project-specific shorthand to durable meaning, use the current conversation plus already-loaded durable truth first. Only when two or more materially different referents remain viable and choosing wrong would materially change the answer/route/commitment should O perform one targeted durable read or surface the ambiguity. Do not broadly reload durable sources for ordinary unambiguous language.
 
-Next workstream: `Private Artifact Plane / Result Transport`.
+## 8. Evidence
 
-Goal: prove one private backend can carry bounded Worker assignment/result artifacts without leaking private content to the public GitHub control plane, then repeat the E2E path before promotion. Backend selection remains open; do not assume Drive is the winner because prior Drive create-new was blocked.
+Earlier architecture / Reasoning Brake evidence remains in public Issues #49, #51–#55, #58, #65–#66, #69 and the historical PoCs referenced by prior revisions.
+
+2026-09-03 private-runtime promotion evidence:
+- `ga815647/chatdev-exec` private Issue #13: ChatGPT-originated E2E PASS;
+- private Issue #14: ChatGPT-originated E2E materially correct CHALLENGE;
+- private Issue #15: promotion review CHALLENGE on untested full-host reboot recovery; baseline narrowed to mark that recovery property unverified and retain safe O-local fallback on reviewer unavailability;
+- private repo policy mutability and runner service restart/reconnect were validated before promotion.
+
+## 9. Next priority
+
+Collect natural real-use Reasoning Brake cases and watch false-positive/false-negative behavior. Do not expand transport or restore automation merely for symmetry. Add a lane only after a concrete capability need or failure mode is demonstrated.
