@@ -10,8 +10,11 @@ Low-judgment factual lookup, translation, mechanical transformation, simple stat
 
 Use the brake when the current turn contains a material recommendation, prioritization, architecture direction, proposal acceptance/rejection, irreversible or costly action, or other consequential commitment where a missed framing/assumption/evidence problem could change the answer.
 
+Ordinary Worker routing/decomposition does not trigger Sol-low merely because it involves judgment. A narrow pre-execution exception exists only when the proposed execution route/decomposition is itself both materially consequential if wrong and genuinely uncertain. In that case one Sol-low review may run before Worker dispatch; Sol still returns to the Orchestrator and has no dispatch authority.
+
 ## Sequence
 
+Default decision path:
 1. The Orchestrator reasons normally and forms a compact provisional decision. Do not pre-run a full FRAME/REVIEW/SYNTHESIZE ceremony.
 2. Build the minimum decision packet below. Do not send the full conversation.
 3. If the packet is safe for this repository's public GitHub surface, open exactly one `CODEX-BRAKE-V0|...` issue to trigger `.github/workflows/codex-reasoning-brake-v0.yml`.
@@ -19,6 +22,12 @@ Use the brake when the current turn contains a material recommendation, prioriti
 5. `PASS`: continue normally. `CHALLENGE`: the Orchestrator must explicitly resolve, verify, or reject the material issue before commitment.
 6. If the external brake is unsafe to dispatch, returns `UNAVAILABLE`, or has no terminal result by the 8-minute Orchestrator budget, fail open only with respect to the external dependency: do not retry automatically and do not spawn a fresh subchat merely to replace the brake. Before commitment, run one local minimum falsification check: identify the strongest material reason the provisional decision could be wrong and resolve it once.
 7. For high-cost or hard-to-reverse decisions, if that local check exposes unresolved decision-controlling uncertainty, verify it before commitment or keep the decision tentative / blocked rather than forcing closure.
+
+Narrow pre-execution route-review exception:
+1. Before Worker dispatch, the Orchestrator may build one compact routing/decomposition decision packet only when the route is materially consequential if wrong and genuinely uncertain.
+2. Run the same single Sol-low falsifier under the same privacy, timeout, and fallback rules.
+3. Sol returns to the Orchestrator. The Orchestrator resolves the result and alone decides whether/how to dispatch Worker.
+4. This pre-execution review does not automatically satisfy or suppress a later Reasoning Brake on a distinct consequential final commitment; a later Sol-low call occurs only if that rebuilt/final commitment independently remains trigger-qualified.
 
 The external falsifier is evidence only. The Orchestrator remains the sole decision and acceptance authority.
 
@@ -58,18 +67,18 @@ Keep the packet compact; it should normally stay under 2,000 characters. The wor
 Canonical role prompt: `reasoning-brake-v0/FALSIFIER.md`.
 
 Execution profile:
-- model: `gpt-5.6-sol`
-- reasoning effort: `low`
-- exactly one falsifier
-- substrate: persistent Windows runner `[self-hosted, windows, chatgpt-host]`
-- authentication: the runner's persistent Codex ChatGPT-subscription session; do not copy `auth.json` into ephemeral GitHub-hosted runners
-- canonical `FALSIFIER.md` is fetched at the triggering commit SHA and passed to the host; the host does not checkout the repository
-- model executes from an isolated temporary directory
-- read-only sandbox, user config ignored, no repository inspection or web research
-- workflow job timeout: 8 minutes once started
-- global workflow concurrency: one active brake
-- if a queued brake starts at age >=6 minutes, return `EXPIRED_IN_QUEUE` without spending a model call
-- regardless of GitHub queue state, the Orchestrator stops waiting at 8 minutes from dispatch and falls back locally
+- model: `gpt-5.6-sol`;
+- reasoning effort: `low`;
+- exactly one falsifier;
+- substrate: persistent Windows runner `[self-hosted, windows, chatgpt-host]`;
+- authentication: the runner's persistent Codex ChatGPT-subscription session; do not copy `auth.json` into ephemeral GitHub-hosted runners;
+- canonical `FALSIFIER.md` is fetched at the triggering commit SHA and passed to the host; the host does not checkout the repository;
+- model executes from an isolated temporary directory;
+- read-only sandbox, user config ignored, no repository inspection or web research;
+- workflow job timeout: 8 minutes once started;
+- global workflow concurrency: one active brake;
+- if a queued brake starts at age >=6 minutes, return `EXPIRED_IN_QUEUE` without spending a model call;
+- regardless of GitHub queue state, the Orchestrator stops waiting at 8 minutes from dispatch and falls back locally.
 
 Canonical result:
 
@@ -103,6 +112,10 @@ The reasoning brake is a Reviewer lane, not a Worker lane.
 - It does not recursively dispatch.
 - It does not satisfy or alter Subchat join rules.
 - A substantial execution task may still be routed by the existing Chat Dev dispatch rules independently of this brake.
+- Sol never directly dispatches a Worker; Sol returns to O and O alone decides execution routing.
+- If a post-decision Sol challenge exposes a hidden material evidence gap, O may dispatch a bounded Worker, accept the returned evidence, and rebuild the provisional decision.
+- Do not automatically run a second Sol after that Worker return. Re-run Sol only if the rebuilt commitment independently remains trigger-qualified.
+- Re-enter the Orchestrator's THIN FRAME only when a return materially changes routing-relevant state or otherwise requires rerouting; the mere fact that Worker/Sol returned is not itself a trigger.
 
 ## Validation evidence
 
@@ -114,10 +127,12 @@ Live validation on 2026-09-02:
 - Issue #54: packet-v2 PASS canary PASS; established goal/facts preserved; 11 s.
 - Issue #55: packet-v2 CHALLENGE canary CHALLENGE; goal contradiction correctly identified; 23 s.
 - Issue #58: architecture-freeze review CHALLENGE exposed a gap where an external failure could leave a trigger-qualified consequential decision with no falsification; v0 was corrected to require one local minimum fallback for every trigger-qualified decision.
+- Issue #65: control-loop review CHALLENGE rejected mandatory per-return FRAME and led to a fixed evidence-first main path plus a narrow pre-execution review exception.
+- Issue #66: representative-trace promotion review CHALLENGE forced an adversarial unchanged-objective reroute trace; the candidate passed with wording hardened to conditional re-entry on material routing-state change / reroute need.
 
 Rejected production path: copying `CODEX_AUTH_JSON` to ephemeral GitHub-hosted runners. Live issue #48 exposed refresh-token rotation/reuse failure. The persistent host session is the accepted v0 authentication substrate.
 
-This proves substrate execution plus basic PASS/CHALLENGE discrimination; it does not prove long-run falsifier recall or false-positive rate. Collect natural real-use cases before tuning model/effort or widening trigger scope.
+This proves substrate execution plus basic PASS/CHALLENGE discrimination and the minimal orchestration interaction needed by the control-plane candidate; it does not prove long-run falsifier recall or false-positive rate. Collect natural real-use cases before tuning model/effort or widening trigger scope.
 
 ## Rollback
 
