@@ -63,6 +63,7 @@ jobs:
     env:
       SUBCHAT_HOST_ISSUE_NUMBER: ${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number }}
       SUBCHAT_HOST_ASSIGNMENT: ${{ github.event_name == 'issues' && github.event.issue.body || inputs.prompt }}
+      SUBCHAT_ASSISTANT_TURN_RESULT_PATH: ${{ runner.temp }}\subchat-assistant-turn-start.json
     steps:
       - name: Check out validator code
         uses: actions/checkout@v4
@@ -140,6 +141,38 @@ jobs:
             exit 1
           }
 
+      - name: Confirm assistant turn started without reading output
+        id: assistant-start
+        if: steps.execute.outcome == 'success'
+        shell: powershell
+        continue-on-error: true
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+          if (-not $nodeCommand) {
+            $runtimeRoot = Join-Path $env:USERPROFILE '.cache\codex-runtimes'
+            $nodeCommand = Get-ChildItem -LiteralPath $runtimeRoot -Filter node.exe -File -Recurse -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -like '*\dependencies\node\bin\node.exe' } |
+              Select-Object -First 1
+          }
+
+          if (-not $nodeCommand) {
+            $fallback = '{"status":"FAIL","prompt_page_found":false,"assistant_turn_started":false,"assistant_turn_start_evidence":"NONE","reason":"NODE_NOT_FOUND","assistant_output_accessed":false}'
+            [IO.File]::WriteAllText($env:SUBCHAT_ASSISTANT_TURN_RESULT_PATH, $fallback, [Text.UTF8Encoding]::new($false))
+            exit 1
+          }
+
+          $nodePath = if ($nodeCommand.Source) { $nodeCommand.Source } else { $nodeCommand.FullName }
+          $probe = Join-Path $env:GITHUB_WORKSPACE 'ordinary-chat-poc3b\assistant-turn-start-probe.mjs'
+          $probeOutput = & $nodePath $probe 2>&1 | Out-String
+          $probeExit = $LASTEXITCODE
+          [IO.File]::WriteAllText(
+            $env:SUBCHAT_ASSISTANT_TURN_RESULT_PATH,
+            $probeOutput.Trim(),
+            [Text.UTF8Encoding]::new($false)
+          )
+          exit $probeExit
+
       - name: Return execution status to the issue
         id: ack
         if: always()
@@ -177,6 +210,22 @@ jobs:
               };
             }
 
+            let assistantStart = {
+              status: 'FAIL',
+              prompt_page_found: false,
+              assistant_turn_started: false,
+              assistant_turn_start_evidence: 'NONE',
+              reason: 'PROBE_RESULT_MISSING',
+              assistant_output_accessed: false
+            };
+            try {
+              assistantStart = JSON.parse(fs.readFileSync(process.env.SUBCHAT_ASSISTANT_TURN_RESULT_PATH, 'utf8'));
+            } catch {}
+
+            const assistantTurnStarted = assistantStart.status === 'PASS' &&
+              assistantStart.prompt_page_found === true &&
+              assistantStart.assistant_turn_started === true &&
+              assistantStart.assistant_output_accessed === false;
             const passed = result.status === 'PASS' &&
               result.authentication === 'AUTHENTICATED' &&
               result.target_kind === 'PROJECT' &&
@@ -184,7 +233,8 @@ jobs:
               result.project_conversation_created === true &&
               result.ordinary_conversation_created === true &&
               result.fixed_prompt_submitted === true &&
-              result.assistant_output_accessed === false;
+              result.assistant_output_accessed === false &&
+              assistantTurnStarted;
             const rateLimited = result.status === 'RATE_LIMITED';
             const correlationSha256 = process.env.SUBCHAT_RESULT_CORRELATION_SHA256 || '';
             if (!/^[0-9a-f]{64}$/.test(correlationSha256)) {
@@ -209,6 +259,9 @@ jobs:
               `project_conversation: ${result.project_conversation_created === true ? 'PASS' : 'FAIL'}`,
               `conversation_creation: ${result.ordinary_conversation_created === true ? 'PASS' : 'FAIL'}`,
               `prompt_submission: ${result.fixed_prompt_submitted === true ? 'PASS' : 'FAIL'}`,
+              `assistant_turn_started: ${assistantTurnStarted ? 'PASS' : 'FAIL'}`,
+              `assistant_turn_start_evidence: ${assistantStart.assistant_turn_start_evidence || 'NONE'}`,
+              `assistant_turn_probe_reason: ${assistantStart.reason || 'NONE'}`,
               `conversation_url: ${result.conversation_url || 'NOT_AVAILABLE'}`,
               'result_protocol: SUBCHAT_WORKER_RESULT_V1',
               `correlation_sha256: ${correlationSha256}`,
@@ -216,7 +269,7 @@ jobs:
               `rate_limit_dismissal_count: ${Number.isInteger(result.rate_limit_dismissal_count) ? result.rate_limit_dismissal_count : 0}`,
               `retry_allowed_now: ${result.retry_allowed_now === true ? 'true' : 'false'}`,
               ...(Number.isInteger(result.retry_after_seconds) ? [`retry_after_seconds: ${result.retry_after_seconds}`] : []),
-              `assistant_output_accessed: ${result.assistant_output_accessed === true ? 'true' : 'false'}`
+              `assistant_output_accessed: ${result.assistant_output_accessed === true || assistantStart.assistant_output_accessed === true ? 'true' : 'false'}`
             ].join('\n');
 
             const { data: ack } = await github.rest.issues.createComment({
@@ -231,7 +284,9 @@ jobs:
             if (!passed) {
               core.setFailed(rateLimited
                 ? 'Persistent ChatGPT host could not restore progress after the rate-limit UI notice.'
-                : 'Persistent ChatGPT host execution failed.');
+                : result.status === 'PASS' && !assistantTurnStarted
+                  ? 'Prompt submission was visible but assistant turn start was not confirmed.'
+                  : 'Persistent ChatGPT host execution failed.');
             }
 
   validate-worker-result:
