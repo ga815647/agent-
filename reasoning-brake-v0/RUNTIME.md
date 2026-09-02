@@ -1,142 +1,167 @@
 # Chat Dev Reasoning Brake v0 — Runtime
 
-Status: ACTIVE DEFAULT — EXPERIMENTAL / REVERSIBLE
-Scope: Chat Dev consequential decision / commitment braking only. Execution routing and Worker policy remain separate.
-Goal: cheaply interrupt conversation momentum before consequential commitment without turning every answer into staged self-review.
+Status: ACTIVE DEFAULT — REVERSIBLE
+Promotion date: 2026-09-03
+Scope: consequential decision / commitment braking only. Worker routing remains separate.
+
+Goal: interrupt conversation momentum before consequential commitment without making every answer pay a review tax.
 
 ## Trigger
 
-Low-judgment factual lookup, translation, mechanical transformation, simple status, routine execution, and ordinary reversible control-plane choices do not need this brake merely because they involve judgment.
+Do not trigger merely for lookup, translation, mechanical transformation, simple status, deterministic acceptance, or ordinary reversible routing.
 
-Use the brake when the current turn contains a material recommendation, prioritization, architecture direction, proposal acceptance/rejection, irreversible or costly action, or other consequential commitment where a missed framing/assumption/evidence problem could change the answer.
+Trigger when O is about to make a material recommendation, prioritization, architecture direction, proposal acceptance/rejection, irreversible/costly action, or another consequential commitment where a missed framing, assumption, alternative, or evidence defect could materially change the decision.
 
-Ordinary Worker routing/decomposition does not trigger Sol-low merely because it involves judgment. A narrow pre-execution exception exists only when the proposed execution route/decomposition is itself both materially consequential if wrong and genuinely uncertain. In that case one Sol-low review may run before Worker dispatch; Sol still returns to the Orchestrator and has no dispatch authority.
+Ordinary Worker routing/decomposition is separate. One pre-execution Sol review is allowed only when the route/decomposition itself is both materially consequential if wrong and genuinely uncertain.
 
 ## Sequence
 
-Default decision path:
-1. The Orchestrator reasons normally and forms a compact provisional decision. Do not pre-run a full FRAME/REVIEW/SYNTHESIZE ceremony.
-2. Build the minimum decision packet below. Do not send the full conversation.
-3. If the packet is safe for this repository's public GitHub surface, open exactly one `CODEX-BRAKE-V0|...` issue to trigger `.github/workflows/codex-reasoning-brake-v0.yml`.
-4. Treat a dispatched external brake as a bounded decision dependency for at most 8 minutes from dispatch. This is not a Worker/subchat join and creates no Worker authority.
-5. `PASS`: continue normally. `CHALLENGE`: the Orchestrator must explicitly resolve, verify, or reject the material issue before commitment.
-6. If the external brake is unsafe to dispatch, returns `UNAVAILABLE`, or has no terminal result by the 8-minute Orchestrator budget, fail open only with respect to the external dependency: do not retry automatically and do not spawn a fresh subchat merely to replace the brake. Before commitment, run one local minimum falsification check: identify the strongest material reason the provisional decision could be wrong and resolve it once.
-7. For high-cost or hard-to-reverse decisions, if that local check exposes unresolved decision-controlling uncertainty, verify it before commitment or keep the decision tentative / blocked rather than forcing closure.
+1. O reasons normally and forms a compact provisional decision.
+2. Build the minimum reviewer packet below. Never send the full conversation when a smaller packet is sufficient.
+3. If the packet is appropriate for private GitHub storage, open exactly one qualifying Issue in private `ga815647/chatdev-exec`.
+4. Treat the external reviewer as a bounded decision dependency for at most 8 minutes from dispatch.
+5. `PASS`: continue. `CHALLENGE`: O must explicitly resolve, verify, narrow, or reject the material issue before commitment.
+6. If the reviewer is unsafe to use, returns unavailable, or has no terminal result within the O budget, do not retry automatically and do not fall back to the retired Windows lane. Run one O-local minimum falsification check instead: identify the strongest material reason the provisional decision could be wrong and resolve it once.
+7. For high-cost/hard-to-reverse commitments, unresolved decision-controlling uncertainty after that check means verify first or keep the decision tentative/blocked.
 
-Narrow pre-execution route-review exception:
-1. Before Worker dispatch, the Orchestrator may build one compact routing/decomposition decision packet only when the route is materially consequential if wrong and genuinely uncertain.
-2. Run the same single Sol-low falsifier under the same privacy, timeout, and fallback rules.
-3. Sol returns to the Orchestrator. The Orchestrator resolves the result and alone decides whether/how to dispatch Worker.
-4. This pre-execution review does not automatically satisfy or suppress a later Reasoning Brake on a distinct consequential final commitment; a later Sol-low call occurs only if that rebuilt/final commitment independently remains trigger-qualified.
+The external falsifier is evidence only. O remains the sole decision/acceptance authority.
 
-The external falsifier is evidence only. The Orchestrator remains the sole decision and acceptance authority.
+## Private reviewer request
 
-## Decision packet
+Repository:
 
-Only dispatch a packet after the Orchestrator has established `packet_class: PUBLIC_SAFE`.
-
-Never put secrets, credentials, private connector contents, private artifact IDs/URLs, personal sensitive data, or other non-public material into the GitHub issue. If there is material doubt, do not externalize it; use the local minimum falsification fallback instead.
+`ga815647/chatdev-exec` (PRIVATE)
 
 Issue title prefix:
 
-`CODEX-BRAKE-V0|`
+`CODEX-BRAKE|PRIVATE-`
 
 Issue body contract:
 
 ```text
-packet_class: PUBLIC_SAFE
-decision_id: <short correlation id>
-goal: <established user goal>
-provisional_decision: <one concise sentence>
-established_facts:
-- <up to 4 facts established by conversation or durable evidence, or none>
-material_assumptions:
-- <up to 3 unverified assumptions, or none>
-evidence_pointers:
-- <up to 3 public-safe labels/pointers, or none>
+execution_id: <letters, digits, dot, underscore, or hyphen>
+packet_class: PRIVATE_OPERATIONAL
+decision_under_review: <one bounded provisional decision>
+decisive_evidence:
+- <minimum sufficient established evidence>
 known_uncertainty:
 - <material unresolved uncertainty, or none>
+required_falsification: <identify at most one decision-changing defect/check>
 ```
 
-`goal` and `established_facts` are asserted as established for the falsifier invocation; `material_assumptions` are explicitly challengeable. This separation prevents the reviewer from wasting its single challenge on re-proving already-established context.
+Normal packet target is under 2,000 characters; the execution gate rejects bodies over 8,000 characters.
 
-Keep the packet compact; it should normally stay under 2,000 characters. The workflow rejects issue bodies above 8,000 characters.
+The private plane allows bounded private operational context needed for the review, but minimum disclosure still applies. Never put credentials, reusable tokens, auth files, private keys, session cookies, or other reusable authentication material into Issues/results. Avoid storing sensitive personal material when it is not decision-necessary; use O-local falsification when GitHub storage would be inappropriate.
 
-## External falsifier contract
+GitHub Secrets are not packet/result transport.
 
-Canonical role prompt: `reasoning-brake-v0/FALSIFIER.md`.
+## External execution profile
 
-Execution profile:
-- model: `gpt-5.6-sol`;
-- reasoning effort: `low`;
+Execution substrate:
+- private repo-scoped self-hosted runner `chatdev-sol-vps`;
+- runner user `chatdev-sol`;
+- persistent Codex identity authenticated with ChatGPT subscription on the VPS;
+- no copied `auth.json`;
+- no production `OPENAI_API_KEY` dependency;
+- no desktop/Windows runtime dependency.
+
+Reviewer model and reasoning effort come from private `ga815647/chatdev-exec/reviewer-policy.json`.
+
+Current production policy at promotion:
+
+```json
+{
+  "model": "gpt-5.6-sol",
+  "reasoning_effort": "low"
+}
+```
+
+Policy mutation is GitHub-side. Changing supported model/effort does not require desktop access, SSH, systemd edits, or Codex re-login. Unsupported policy values fail closed; there is no silent model fallback.
+
+Execution constraints:
 - exactly one falsifier;
-- substrate: persistent Windows runner `[self-hosted, windows, chatgpt-host]`;
-- authentication: the runner's persistent Codex ChatGPT-subscription session; do not copy `auth.json` into ephemeral GitHub-hosted runners;
-- canonical `FALSIFIER.md` is fetched at the triggering commit SHA and passed to the host; the host does not checkout the repository;
-- model executes from an isolated temporary directory;
-- read-only sandbox, user config ignored, no repository inspection or web research;
-- workflow job timeout: 8 minutes once started;
-- global workflow concurrency: one active brake;
-- if a queued brake starts at age >=6 minutes, return `EXPIRED_IN_QUEUE` without spending a model call;
-- regardless of GitHub queue state, the Orchestrator stops waiting at 8 minutes from dispatch and falls back locally.
+- Reviewer lane only;
+- temporary isolated working directory;
+- read-only Codex sandbox;
+- no browser/web research;
+- no general repo research;
+- no recursive Worker/delegation;
+- global reviewer concurrency bounded by the private workflow;
+- workflow/reviewer timeout bounded at 8 minutes.
 
-Canonical result:
+The private workflow mirrors the minimum machine-facing falsifier contract needed to execute this public runtime. Public `ga815647/agent-` remains the semantic authority.
+
+## Result contract
+
+Validated terminal result is written to the same private Issue. Current envelope:
 
 ```text
-CODEX_BRAKE_V0_COMPLETE
+PRIVATE_CODEX_BRAKE_COMPLETE
+execution_id: <id>
 status: PASS | CHALLENGE
 material_issue: <none or one issue>
 why_decision_changing: <none or concise reason>
 check_needed: <none or one check>
-model: gpt-5.6-sol
-reasoning: low
+model: <policy model>
+reasoning_effort: <policy effort>
+runner_name: chatdev-sol-vps
+runner_os: Linux
+runner_user: chatdev-sol
+login_mode: ChatGPT
+api_key_used: no
+desktop_runtime_used: no
+exit_code: 0
+contract_parse: PASS
 elapsed_seconds: <integer>
+terminal_status: COMPLETE
 ```
 
-Workflow failure / capacity results may use:
-
-```text
-CODEX_BRAKE_V0_UNAVAILABLE
-status: UNAVAILABLE
-reason: <INVALID_PACKET | EXPIRED_IN_QUEUE | CODEX_EXIT | INVALID_RESULT>
-```
-
-If the self-hosted runner is offline or remains queued, no workflow comment may arrive; the Orchestrator's 8-minute budget terminates the external dependency. `UNAVAILABLE` is terminal for that external attempt. Do not retry automatically and do not bypass capacity by opening another Codex or subchat job; use the local minimum falsification fallback.
+Unavailability/failure fails closed at the external lane. O then applies the local fallback above; it does not silently route to another external reviewer.
 
 ## Relationship to Workers
 
-The reasoning brake is a Reviewer lane, not a Worker lane.
-
-- It does not receive Worker authority.
-- It does not perform implementation or research.
+The brake is Reviewer, never Worker.
+- It has no Worker authority.
+- It does not perform implementation/research.
 - It does not recursively dispatch.
-- It does not satisfy or alter Subchat join rules.
-- A substantial execution task may still be routed by the existing Chat Dev dispatch rules independently of this brake.
-- Sol never directly dispatches a Worker; Sol returns to O and O alone decides execution routing.
-- If a post-decision Sol challenge exposes a hidden material evidence gap, O may dispatch a bounded Worker, accept the returned evidence, and rebuild the provisional decision.
-- Do not automatically run a second Sol after that Worker return. Re-run Sol only if the rebuilt commitment independently remains trigger-qualified.
-- Re-enter the Orchestrator's THIN FRAME only when a return materially changes routing-relevant state or otherwise requires rerouting; the mere fact that Worker/Sol returned is not itself a trigger.
+- Sol never decides Worker routing.
+- If a post-decision challenge exposes a material execution/evidence gap, O may issue a manual bounded Worker prompt, accept the returned evidence, and rebuild the decision.
+- Do not automatically run another Sol after Worker return. Re-run only if the rebuilt commitment independently remains trigger-qualified.
+- Worker/Sol return does not automatically rerun THIN FRAME; re-enter only on material routing-state change/reroute need.
+
+## Availability boundary
+
+Validated before promotion:
+- VPS subscription Codex canary: PASS;
+- known PASS and CHALLENGE reviewer canaries: PASS;
+- GitHub-side model/effort mutability: PASS;
+- runner service restart/reconnect: PASS;
+- post-service-restart canary: PASS;
+- ChatGPT connector private read/write: PASS;
+- repeated ChatGPT-originated full E2E reviewer path: PASS and CHALLENGE.
+
+Not live-validated at promotion:
+- full VPS host reboot recovery.
+
+This is explicitly an availability uncertainty. If a host reboot leaves the reviewer unavailable, apply the O-local fallback; never silently restore the retired Windows lane.
 
 ## Validation evidence
 
-Live validation on 2026-09-02:
-- Issue #49: persistent Windows Codex host smoke PASS using `gpt-5.6-sol` low.
-- Issue #51: initial CHALLENGE canary correctly caught a maintenance-goal contradiction; 14 s.
-- Issue #52: initial PASS canary produced no manufactured objection; 11 s.
-- Issue #53: canonical-contract canary exposed a packet-design flaw by challenging a goal incorrectly labeled as an assumption; packet schema was corrected rather than suppressing the challenge.
-- Issue #54: packet-v2 PASS canary PASS; established goal/facts preserved; 11 s.
-- Issue #55: packet-v2 CHALLENGE canary CHALLENGE; goal contradiction correctly identified; 23 s.
-- Issue #58: architecture-freeze review CHALLENGE exposed a gap where an external failure could leave a trigger-qualified consequential decision with no falsification; v0 was corrected to require one local minimum fallback for every trigger-qualified decision.
-- Issue #65: control-loop review CHALLENGE rejected mandatory per-return FRAME and led to a fixed evidence-first main path plus a narrow pre-execution review exception.
-- Issue #66: representative-trace promotion review CHALLENGE forced an adversarial unchanged-objective reroute trace; the candidate passed with wording hardened to conditional re-entry on material routing-state change / reroute need.
+Private `ga815647/chatdev-exec`:
+- Issue #13: ChatGPT-created E2E PASS → VPS subscription reviewer → private result → ChatGPT readback.
+- Issue #14: ChatGPT-created E2E CHALLENGE; correctly identified an untested rollback prerequisite.
+- Issue #15: promotion review CHALLENGE identified untested full-host reboot recovery; O accepted the challenge by narrowing the production claim and retaining safe unavailability fallback.
 
-Rejected production path: copying `CODEX_AUTH_JSON` to ephemeral GitHub-hosted runners. Live issue #48 exposed refresh-token rotation/reuse failure. The persistent host session is the accepted v0 authentication substrate.
+Historical public evidence remains in `ga815647/agent-` Issues #49, #51–#55, #58, #65–#66, #69. Historical Issue #48 remains evidence against copied subscription auth on ephemeral runners.
 
-This proves substrate execution plus basic PASS/CHALLENGE discrimination and the minimal orchestration interaction needed by the control-plane candidate; it does not prove long-run falsifier recall or false-positive rate. Collect natural real-use cases before tuning model/effort or widening trigger scope.
+## Retired paths
+
+The following are not normal-runtime fallback:
+- public `CODEX-BRAKE-V0|` → Windows self-hosted runner;
+- copied `CODEX_AUTH_JSON` on ephemeral runners;
+- API-key-backed remote Sol candidate;
+- automatic replacement subchat/Worker for a failed brake.
 
 ## Rollback
 
-To roll back, restore `Chat Dev｜Current` to the previous staged Harness pointer:
-`ga815647/agent-` branch `exp/ech-runtime-staged3-default` → `external-cognitive-harness-runtime/RUNTIME.md`.
-
-Do not rewrite historical Harness experiment artifacts when activating or rolling back this runtime.
+Rollback the private external lane by disabling its use in Current/RUNTIME and using the O-local minimum falsification path. Do **not** silently re-enable the historical Windows reviewer. Re-activating any retired external substrate requires an explicit new change and validation.
