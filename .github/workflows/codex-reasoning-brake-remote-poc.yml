@@ -1,0 +1,200 @@
+name: Chat Dev Remote Sol-low PoC
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: codex-reasoning-brake-remote-poc
+  cancel-in-progress: false
+
+jobs:
+  remote-sol-low:
+    if: >-
+      github.event.issue.user.login == github.repository_owner &&
+      startsWith(github.event.issue.title, 'CODEX-BRAKE-REMOTE-POC|')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ISSUE_BODY: ${{ github.event.issue.body }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - name: Validate packet and auth
+        id: gate
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          body = os.environ.get('ISSUE_BODY', '')
+          required = [
+              'packet_class: PUBLIC_SAFE',
+              'decision_id:',
+              'goal:',
+              'provisional_decision:',
+              'established_facts:',
+              'material_assumptions:',
+              'evidence_pointers:',
+              'known_uncertainty:',
+          ]
+          packet_valid = bool(body) and len(body) <= 8000 and all(token in body for token in required)
+          auth_ready = bool(os.environ.get('OPENAI_API_KEY', '').strip())
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as f:
+              f.write(f'packet_valid={str(packet_valid).lower()}\n')
+              f.write(f'auth_ready={str(auth_ready).lower()}\n')
+          PY
+
+      - name: Report invalid packet
+        if: steps.gate.outputs.packet_valid != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "$GITHUB_REPOSITORY" --body $'REMOTE_SOL_LOW_POC_UNAVAILABLE\nstatus: UNAVAILABLE\nreason: INVALID_PACKET'
+
+      - name: Report missing API auth
+        if: steps.gate.outputs.packet_valid == 'true' && steps.gate.outputs.auth_ready != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "$GITHUB_REPOSITORY" --body $'REMOTE_SOL_LOW_POC_BLOCKED\nstatus: BLOCKED_AUTH\nauth: OPENAI_API_KEY_MISSING\nlocal_substrate_used: false'
+
+      - name: Build falsifier prompt
+        if: steps.gate.outputs.packet_valid == 'true' && steps.gate.outputs.auth_ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/contents/reasoning-brake-v0/FALSIFIER.md?ref=$GITHUB_SHA" --jq '.content' | base64 -d > falsifier.md
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          contract = Path('falsifier.md').read_text(encoding='utf-8').strip()
+          body = os.environ['ISSUE_BODY'].strip()
+          Path('prompt.txt').write_text(contract + '\n\nPROVISIONAL DECISION PACKET:\n' + body + '\n', encoding='utf-8')
+          PY
+
+      - name: Run remote Sol-low through Responses API
+        id: model
+        if: steps.gate.outputs.packet_valid == 'true' && steps.gate.outputs.auth_ready == 'true'
+        continue-on-error: true
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request, urllib.error
+          from pathlib import Path
+
+          prompt = Path('prompt.txt').read_text(encoding='utf-8')
+          payload = {
+              'model': 'gpt-5.6-sol',
+              'input': prompt,
+              'reasoning': {'effort': 'low'},
+              'text': {'verbosity': 'low'},
+              'max_output_tokens': 1800,
+              'store': False,
+          }
+          request = urllib.request.Request(
+              'https://api.openai.com/v1/responses',
+              data=json.dumps(payload).encode('utf-8'),
+              headers={
+                  'Authorization': 'Bearer ' + os.environ['OPENAI_API_KEY'],
+                  'Content-Type': 'application/json',
+              },
+              method='POST',
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=180) as response:
+                  data = json.load(response)
+          except Exception as exc:
+              Path('api-error.txt').write_text(type(exc).__name__, encoding='utf-8')
+              raise
+
+          texts = []
+          for item in data.get('output', []):
+              if item.get('type') != 'message':
+                  continue
+              for content in item.get('content', []):
+                  if content.get('type') == 'output_text':
+                      texts.append(content.get('text', ''))
+          output = '\n'.join(texts).strip()
+          Path('raw-result.txt').write_text(output + '\n', encoding='utf-8')
+
+          lines = [line.strip() for line in output.splitlines() if line.strip()]
+          values = {}
+          for line in lines:
+              if ':' not in line:
+                  continue
+              key, value = line.split(':', 1)
+              values[key.strip()] = value.strip()
+          required = ['status', 'material_issue', 'why_decision_changing', 'check_needed']
+          valid = len(lines) == 4 and all(key in values for key in required) and values.get('status') in {'PASS', 'CHALLENGE'}
+          if not valid:
+              raise RuntimeError('INVALID_RESULT')
+
+          normalized = '\n'.join(f'{key}: {values[key]}' for key in required) + '\n'
+          Path('normalized.txt').write_text(normalized, encoding='utf-8')
+
+          usage = data.get('usage') or {}
+          details = usage.get('input_tokens_details') or {}
+          input_tokens = int(usage.get('input_tokens') or 0)
+          output_tokens = int(usage.get('output_tokens') or 0)
+          reasoning_tokens = int((usage.get('output_tokens_details') or {}).get('reasoning_tokens') or 0)
+          cached_tokens = int(details.get('cached_tokens') or 0)
+          cache_write_tokens = int(details.get('cache_write_tokens') or 0)
+          ordinary_input = max(0, input_tokens - cached_tokens - cache_write_tokens)
+          estimated_usd = (
+              ordinary_input * 4.0 / 1_000_000 +
+              cached_tokens * 0.4 / 1_000_000 +
+              cache_write_tokens * 5.0 / 1_000_000 +
+              output_tokens * 20.0 / 1_000_000
+          )
+          metrics = {
+              'model': data.get('model', 'gpt-5.6-sol'),
+              'input_tokens': input_tokens,
+              'cached_input_tokens': cached_tokens,
+              'cache_write_tokens': cache_write_tokens,
+              'output_tokens': output_tokens,
+              'reasoning_tokens': reasoning_tokens,
+              'estimated_usd_2026_09_02': round(estimated_usd, 6),
+          }
+          Path('metrics.json').write_text(json.dumps(metrics), encoding='utf-8')
+          PY
+
+      - name: Return successful remote canary
+        if: steps.model.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = Path('normalized.txt').read_text(encoding='utf-8').strip()
+          metrics = json.loads(Path('metrics.json').read_text(encoding='utf-8'))
+          body = '\n'.join([
+              'REMOTE_SOL_LOW_POC_COMPLETE',
+              result,
+              f"model: {metrics['model']}",
+              'reasoning: low',
+              f"input_tokens: {metrics['input_tokens']}",
+              f"cached_input_tokens: {metrics['cached_input_tokens']}",
+              f"cache_write_tokens: {metrics['cache_write_tokens']}",
+              f"output_tokens: {metrics['output_tokens']}",
+              f"reasoning_tokens: {metrics['reasoning_tokens']}",
+              f"estimated_usd_2026_09_02: {metrics['estimated_usd_2026_09_02']:.6f}",
+              'runner: github-hosted-ubuntu',
+              'local_substrate_used: false',
+          ]) + '\n'
+          Path('comment.txt').write_text(body, encoding='utf-8')
+          PY
+          gh issue comment "${{ github.event.issue.number }}" --repo "$GITHUB_REPOSITORY" --body-file comment.txt
+
+      - name: Report remote model failure
+        if: steps.gate.outputs.packet_valid == 'true' && steps.gate.outputs.auth_ready == 'true' && steps.model.outcome != 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "$GITHUB_REPOSITORY" --body $'REMOTE_SOL_LOW_POC_UNAVAILABLE\nstatus: UNAVAILABLE\nreason: REMOTE_MODEL_OR_RESULT_FAILURE\nrunner: github-hosted-ubuntu\nlocal_substrate_used: false'
