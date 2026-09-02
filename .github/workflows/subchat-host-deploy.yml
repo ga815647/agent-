@@ -25,14 +25,33 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $sourceRoot = Join-Path $env:GITHUB_WORKSPACE 'ordinary-chat-poc3b'
           $targetRoot = 'E:\CS\program\agent-\ordinary-chat-poc3b'
-          $files = @(
-            'persistent-host.ps1',
+          $deployOrder = @(
+            'dispatch-evidence.mjs',
             'persistent-host-dispatch.mjs',
-            'dispatch-evidence.mjs'
+            'persistent-host.ps1'
           )
+
+          function Get-Sha256([string]$Path) {
+            $stream = [System.IO.File]::OpenRead($Path)
+            try {
+              $sha = [System.Security.Cryptography.SHA256]::Create()
+              try {
+                return ([System.BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-', '')
+              }
+              finally {
+                $sha.Dispose()
+              }
+            }
+            finally {
+              $stream.Dispose()
+            }
+          }
 
           if (-not (Test-Path -LiteralPath $targetRoot)) {
             throw "Live host root was not found: $targetRoot"
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $targetRoot 'persistent-host.mjs'))) {
+            throw 'Live host base controller is missing.'
           }
           if (-not (Test-Path -LiteralPath (Join-Path $targetRoot 'node_modules\playwright-core'))) {
             throw 'Live host Playwright runtime is missing.'
@@ -50,24 +69,33 @@ jobs:
           }
           $nodePath = if ($nodeCommand.Source) { $nodeCommand.Source } else { $nodeCommand.FullName }
 
-          foreach ($name in @('persistent-host-dispatch.mjs', 'dispatch-evidence.mjs')) {
+          # Preflight every source before touching the live host.
+          foreach ($name in $deployOrder) {
             $source = Join-Path $sourceRoot $name
             if (-not (Test-Path -LiteralPath $source)) {
               throw "Deploy source was not found: $source"
             }
+          }
+          foreach ($name in @('persistent-host-dispatch.mjs', 'dispatch-evidence.mjs')) {
+            $source = Join-Path $sourceRoot $name
             & $nodePath --check $source
             if ($LASTEXITCODE -ne 0) {
               throw "Node syntax check failed: $name"
             }
           }
 
-          foreach ($name in $files) {
+          # Stage and verify each file before atomic replacement. The launcher is switched last.
+          foreach ($name in $deployOrder) {
             $source = Join-Path $sourceRoot $name
             $target = Join-Path $targetRoot $name
-            Copy-Item -LiteralPath $source -Destination $target -Force
-            $sourceHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
-            $targetHash = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
-            if ($sourceHash -ne $targetHash) {
+            $staged = "$target.chatdev-stage"
+            Copy-Item -LiteralPath $source -Destination $staged -Force
+            if ((Get-Sha256 $source) -ne (Get-Sha256 $staged)) {
+              Remove-Item -LiteralPath $staged -Force -ErrorAction SilentlyContinue
+              throw "Staged file hash mismatch: $name"
+            }
+            Move-Item -LiteralPath $staged -Destination $target -Force
+            if ((Get-Sha256 $source) -ne (Get-Sha256 $target)) {
               throw "Deployed file hash mismatch: $name"
             }
           }
@@ -92,6 +120,6 @@ jobs:
                 'status: PASS',
                 `run_id: ${context.runId}`,
                 `commit: ${context.sha}`,
-                'scope: persistent-host.ps1,persistent-host-dispatch.mjs,dispatch-evidence.mjs'
+                'scope: dispatch-evidence.mjs,persistent-host-dispatch.mjs,persistent-host.ps1'
               ].join('\n')
             });
