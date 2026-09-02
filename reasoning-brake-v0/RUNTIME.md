@@ -1,6 +1,6 @@
 # Chat Dev Reasoning Brake v0 — Runtime
 
-Status: CANDIDATE until live canaries pass and Chat Dev｜Current activates this path.
+Status: ACTIVE DEFAULT — EXPERIMENTAL / REVERSIBLE
 Scope: Chat Dev consequential decision / commitment braking only. Execution routing and Worker policy remain separate.
 Goal: cheaply interrupt conversation momentum before consequential commitment without turning every answer into staged self-review.
 
@@ -14,9 +14,9 @@ Use the brake when the current turn contains a material recommendation, prioriti
 
 1. The Orchestrator reasons normally and forms a compact provisional decision. Do not pre-run a full FRAME/REVIEW/SYNTHESIZE ceremony.
 2. Build the minimum decision packet below. Do not send the full conversation.
-3. If the packet is safe for this repository's public GitHub surface and the Codex substrate is usable, dispatch exactly one external falsifier through `.github/workflows/codex-reasoning-brake-v0.yml` using Sol with low reasoning.
-4. If dispatched, treat the brake as a bounded decision dependency until it returns `PASS`, `CHALLENGE`, or `UNAVAILABLE`, or until the 8-minute brake budget expires. This is not a Worker/subchat join and does not create Worker authority.
-5. `PASS`: continue normally. `CHALLENGE`: the Orchestrator must explicitly resolve, verify, or reject the material issue before commitment. `UNAVAILABLE`/timeout: fail open; do not spawn a fresh subchat merely to replace the brake.
+3. If the packet is safe for this repository's public GitHub surface, open exactly one `CODEX-BRAKE-V0|...` issue to trigger `.github/workflows/codex-reasoning-brake-v0.yml`.
+4. Treat a dispatched brake as a bounded decision dependency for at most 8 minutes from dispatch. This is not a Worker/subchat join and creates no Worker authority.
+5. `PASS`: continue normally. `CHALLENGE`: the Orchestrator must explicitly resolve, verify, or reject the material issue before commitment. `UNAVAILABLE` or no terminal result by the 8-minute Orchestrator budget: fail open; do not spawn a fresh subchat merely to replace the brake.
 6. If the decision is high-cost or hard to reverse and the external brake is unavailable or unsafe to dispatch, run one local minimum falsification check: identify the strongest material reason the provisional decision could be wrong and resolve it before commitment.
 
 The external falsifier is evidence only. The Orchestrator remains the sole decision and acceptance authority.
@@ -36,16 +36,21 @@ Issue body contract:
 ```text
 packet_class: PUBLIC_SAFE
 decision_id: <short correlation id>
+goal: <established user goal>
 provisional_decision: <one concise sentence>
+established_facts:
+- <up to 4 facts established by conversation or durable evidence, or none>
 material_assumptions:
-- <up to 3 assumptions, or none>
+- <up to 3 unverified assumptions, or none>
 evidence_pointers:
 - <up to 3 public-safe labels/pointers, or none>
 known_uncertainty:
-- <material uncertainty, or none>
+- <material unresolved uncertainty, or none>
 ```
 
-The packet should normally stay under 2,000 characters; the workflow rejects bodies above 8,000 characters.
+`goal` and `established_facts` are asserted as established for the falsifier invocation; `material_assumptions` are explicitly challengeable. This separation prevents the reviewer from wasting its single challenge on re-proving already-established context.
+
+Keep the packet compact; it should normally stay under 2,000 characters. The workflow rejects issue bodies above 8,000 characters.
 
 ## External falsifier contract
 
@@ -54,36 +59,39 @@ Canonical role prompt: `reasoning-brake-v0/FALSIFIER.md`.
 Execution profile:
 - model: `gpt-5.6-sol`
 - reasoning effort: `low`
-- one falsifier only
-- Codex CLI with existing ChatGPT subscription auth (`CODEX_AUTH_JSON`)
-- empty temporary working directory after prompt preparation
-- read-only sandbox
-- no repo inspection or web research
-- workflow timeout: 8 minutes
-- global workflow concurrency: one active brake at a time
+- exactly one falsifier
+- substrate: persistent Windows runner `[self-hosted, windows, chatgpt-host]`
+- authentication: the runner's persistent Codex ChatGPT-subscription session; do not copy `auth.json` into ephemeral GitHub-hosted runners
+- canonical `FALSIFIER.md` is fetched at the triggering commit SHA and passed to the host; the host does not checkout the repository
+- model executes from an isolated temporary directory
+- read-only sandbox, user config ignored, no repository inspection or web research
+- workflow job timeout: 8 minutes once started
+- global workflow concurrency: one active brake
+- if a queued brake starts at age >=6 minutes, return `EXPIRED_IN_QUEUE` without spending a model call
+- regardless of GitHub queue state, the Orchestrator stops waiting at 8 minutes from dispatch and fails open
 
 Canonical result:
 
 ```text
 CODEX_BRAKE_V0_COMPLETE
 status: PASS | CHALLENGE
-model: gpt-5.6-sol
-reasoning: low
-elapsed_seconds: <integer>
 material_issue: <none or one issue>
 why_decision_changing: <none or concise reason>
 check_needed: <none or one check>
+model: gpt-5.6-sol
+reasoning: low
+elapsed_seconds: <integer>
 ```
 
-Failure / capacity result:
+Workflow failure / capacity results may use:
 
 ```text
 CODEX_BRAKE_V0_UNAVAILABLE
 status: UNAVAILABLE
-reason: <BLOCKED_AUTH | INVALID_PACKET | CODEX_EXIT | INVALID_RESULT>
+reason: <INVALID_PACKET | EXPIRED_IN_QUEUE | CODEX_EXIT | INVALID_RESULT>
 ```
 
-`UNAVAILABLE` is terminal for this brake attempt. Do not retry automatically and do not bypass capacity by opening another Codex/subchat job.
+If the self-hosted runner is offline or remains queued, no workflow comment may arrive; the Orchestrator's 8-minute budget is the terminal fail-open mechanism. `UNAVAILABLE` is terminal for that brake attempt. Do not retry automatically and do not bypass capacity by opening another Codex or subchat job.
 
 ## Relationship to Workers
 
@@ -95,9 +103,23 @@ The reasoning brake is a Reviewer lane, not a Worker lane.
 - It does not satisfy or alter Subchat join rules.
 - A substantial execution task may still be routed by the existing Chat Dev dispatch rules independently of this brake.
 
+## Validation evidence
+
+Live validation on 2026-09-02:
+- Issue #49: persistent Windows Codex host smoke PASS using `gpt-5.6-sol` low.
+- Issue #51: initial CHALLENGE canary correctly caught a maintenance-goal contradiction; 14 s.
+- Issue #52: initial PASS canary produced no manufactured objection; 11 s.
+- Issue #53: canonical-contract canary exposed a packet-design flaw by challenging a goal incorrectly labeled as an assumption; packet schema was corrected rather than suppressing the challenge.
+- Issue #54: packet-v2 PASS canary PASS; established goal/facts preserved; 11 s.
+- Issue #55: packet-v2 CHALLENGE canary CHALLENGE; goal contradiction correctly identified; 23 s.
+
+Rejected production path: copying `CODEX_AUTH_JSON` to ephemeral GitHub-hosted runners. Live issue #48 exposed refresh-token rotation/reuse failure. The persistent host session is the accepted v0 authentication substrate.
+
+This proves substrate execution plus basic PASS/CHALLENGE discrimination; it does not prove long-run falsifier recall or false-positive rate. Collect natural real-use cases before tuning model/effort or widening trigger scope.
+
 ## Rollback
 
-Activation is reversible by changing `Chat Dev｜Current` back to the prior staged Harness pointer:
+To roll back, restore `Chat Dev｜Current` to the previous staged Harness pointer:
 `ga815647/agent-` branch `exp/ech-runtime-staged3-default` → `external-cognitive-harness-runtime/RUNTIME.md`.
 
 Do not rewrite historical Harness experiment artifacts when activating or rolling back this runtime.
