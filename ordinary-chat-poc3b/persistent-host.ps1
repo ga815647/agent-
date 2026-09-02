@@ -20,7 +20,12 @@ if (-not $nodeCommand) {
 }
 
 $nodePath = if ($nodeCommand.Source) { $nodeCommand.Source } else { $nodeCommand.FullName }
-$controller = Join-Path $PSScriptRoot 'persistent-host.mjs'
+$controllerName = if ($Action -eq 'dispatch') { 'persistent-host-dispatch.mjs' } else { 'persistent-host.mjs' }
+$controller = Join-Path $PSScriptRoot $controllerName
+
+if (-not (Test-Path -LiteralPath $controller)) {
+  throw "Persistent-host controller was not found: $controller"
+}
 
 Push-Location $PSScriptRoot
 try {
