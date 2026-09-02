@@ -6,7 +6,7 @@ Goal: cheaply interrupt conversation momentum before consequential commitment wi
 
 ## Trigger
 
-Low-judgment factual lookup, translation, mechanical transformation, simple status, and routine execution do not need this brake.
+Low-judgment factual lookup, translation, mechanical transformation, simple status, routine execution, and ordinary reversible control-plane choices do not need this brake merely because they involve judgment.
 
 Use the brake when the current turn contains a material recommendation, prioritization, architecture direction, proposal acceptance/rejection, irreversible or costly action, or other consequential commitment where a missed framing/assumption/evidence problem could change the answer.
 
@@ -15,9 +15,10 @@ Use the brake when the current turn contains a material recommendation, prioriti
 1. The Orchestrator reasons normally and forms a compact provisional decision. Do not pre-run a full FRAME/REVIEW/SYNTHESIZE ceremony.
 2. Build the minimum decision packet below. Do not send the full conversation.
 3. If the packet is safe for this repository's public GitHub surface, open exactly one `CODEX-BRAKE-V0|...` issue to trigger `.github/workflows/codex-reasoning-brake-v0.yml`.
-4. Treat a dispatched brake as a bounded decision dependency for at most 8 minutes from dispatch. This is not a Worker/subchat join and creates no Worker authority.
-5. `PASS`: continue normally. `CHALLENGE`: the Orchestrator must explicitly resolve, verify, or reject the material issue before commitment. `UNAVAILABLE` or no terminal result by the 8-minute Orchestrator budget: fail open; do not spawn a fresh subchat merely to replace the brake.
-6. If the decision is high-cost or hard to reverse and the external brake is unavailable or unsafe to dispatch, run one local minimum falsification check: identify the strongest material reason the provisional decision could be wrong and resolve it before commitment.
+4. Treat a dispatched external brake as a bounded decision dependency for at most 8 minutes from dispatch. This is not a Worker/subchat join and creates no Worker authority.
+5. `PASS`: continue normally. `CHALLENGE`: the Orchestrator must explicitly resolve, verify, or reject the material issue before commitment.
+6. If the external brake is unsafe to dispatch, returns `UNAVAILABLE`, or has no terminal result by the 8-minute Orchestrator budget, fail open only with respect to the external dependency: do not retry automatically and do not spawn a fresh subchat merely to replace the brake. Before commitment, run one local minimum falsification check: identify the strongest material reason the provisional decision could be wrong and resolve it once.
+7. For high-cost or hard-to-reverse decisions, if that local check exposes unresolved decision-controlling uncertainty, verify it before commitment or keep the decision tentative / blocked rather than forcing closure.
 
 The external falsifier is evidence only. The Orchestrator remains the sole decision and acceptance authority.
 
@@ -25,7 +26,7 @@ The external falsifier is evidence only. The Orchestrator remains the sole decis
 
 Only dispatch a packet after the Orchestrator has established `packet_class: PUBLIC_SAFE`.
 
-Never put secrets, credentials, private connector contents, private artifact IDs/URLs, personal sensitive data, or other non-public material into the GitHub issue. If there is material doubt, do not externalize it; skip the external brake.
+Never put secrets, credentials, private connector contents, private artifact IDs/URLs, personal sensitive data, or other non-public material into the GitHub issue. If there is material doubt, do not externalize it; use the local minimum falsification fallback instead.
 
 Issue title prefix:
 
@@ -68,7 +69,7 @@ Execution profile:
 - workflow job timeout: 8 minutes once started
 - global workflow concurrency: one active brake
 - if a queued brake starts at age >=6 minutes, return `EXPIRED_IN_QUEUE` without spending a model call
-- regardless of GitHub queue state, the Orchestrator stops waiting at 8 minutes from dispatch and fails open
+- regardless of GitHub queue state, the Orchestrator stops waiting at 8 minutes from dispatch and falls back locally
 
 Canonical result:
 
@@ -91,7 +92,7 @@ status: UNAVAILABLE
 reason: <INVALID_PACKET | EXPIRED_IN_QUEUE | CODEX_EXIT | INVALID_RESULT>
 ```
 
-If the self-hosted runner is offline or remains queued, no workflow comment may arrive; the Orchestrator's 8-minute budget is the terminal fail-open mechanism. `UNAVAILABLE` is terminal for that brake attempt. Do not retry automatically and do not bypass capacity by opening another Codex or subchat job.
+If the self-hosted runner is offline or remains queued, no workflow comment may arrive; the Orchestrator's 8-minute budget terminates the external dependency. `UNAVAILABLE` is terminal for that external attempt. Do not retry automatically and do not bypass capacity by opening another Codex or subchat job; use the local minimum falsification fallback.
 
 ## Relationship to Workers
 
@@ -112,6 +113,7 @@ Live validation on 2026-09-02:
 - Issue #53: canonical-contract canary exposed a packet-design flaw by challenging a goal incorrectly labeled as an assumption; packet schema was corrected rather than suppressing the challenge.
 - Issue #54: packet-v2 PASS canary PASS; established goal/facts preserved; 11 s.
 - Issue #55: packet-v2 CHALLENGE canary CHALLENGE; goal contradiction correctly identified; 23 s.
+- Issue #58: architecture-freeze review CHALLENGE exposed a gap where an external failure could leave a trigger-qualified consequential decision with no falsification; v0 was corrected to require one local minimum fallback for every trigger-qualified decision.
 
 Rejected production path: copying `CODEX_AUTH_JSON` to ephemeral GitHub-hosted runners. Live issue #48 exposed refresh-token rotation/reuse failure. The persistent host session is the accepted v0 authentication substrate.
 
