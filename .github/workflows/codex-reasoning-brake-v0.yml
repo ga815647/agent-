@@ -5,7 +5,6 @@ on:
     types: [opened]
 
 permissions:
-  actions: read
   contents: read
   issues: write
 
@@ -21,8 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       packet_valid: ${{ steps.packet.outputs.packet_valid }}
-      host_available: ${{ steps.capacity.outputs.host_available }}
-      capacity_reason: ${{ steps.capacity.outputs.capacity_reason }}
     steps:
       - id: packet
         env:
@@ -44,31 +41,6 @@ jobs:
               f.write(f'packet_valid={str(valid).lower()}\n')
           PY
 
-      - id: capacity
-        if: steps.packet.outputs.packet_valid == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            try {
-              const response = await github.request('GET /repos/{owner}/{repo}/actions/runners', {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                per_page: 100
-              });
-              const wanted = new Set(['self-hosted', 'windows', 'chatgpt-host']);
-              const candidates = (response.data.runners || []).filter(r => {
-                const labels = new Set((r.labels || []).map(x => String(x.name).toLowerCase()));
-                return [...wanted].every(x => labels.has(x));
-              });
-              const available = candidates.some(r => r.status === 'online' && !r.busy);
-              core.setOutput('host_available', available ? 'true' : 'false');
-              core.setOutput('capacity_reason', available ? 'READY' : 'HOST_BUSY_OR_OFFLINE');
-            } catch (err) {
-              core.warning(`Could not verify Codex host capacity: ${err.message}`);
-              core.setOutput('host_available', 'false');
-              core.setOutput('capacity_reason', 'CAPACITY_UNKNOWN');
-            }
-
       - name: Report invalid packet
         if: steps.packet.outputs.packet_valid != 'true'
         uses: actions/github-script@v7
@@ -81,27 +53,38 @@ jobs:
               body: 'CODEX_BRAKE_V0_UNAVAILABLE\nstatus: UNAVAILABLE\nreason: INVALID_PACKET'
             });
 
-      - name: Report unavailable Codex host
-        if: steps.packet.outputs.packet_valid == 'true' && steps.capacity.outputs.host_available != 'true'
-        uses: actions/github-script@v7
+  falsifier:
+    needs: gate
+    if: needs.gate.outputs.packet_valid == 'true'
+    runs-on: [self-hosted, windows, chatgpt-host]
+    timeout-minutes: 8
+    steps:
+      - name: Reject stale queued brake
+        id: freshness
+        shell: powershell
         env:
-          CAPACITY_REASON: ${{ steps.capacity.outputs.capacity_reason }}
+          CREATED_AT: ${{ github.event.issue.created_at }}
+        run: |
+          $created = [DateTimeOffset]::Parse($env:CREATED_AT)
+          $age = ([DateTimeOffset]::UtcNow - $created).TotalMinutes
+          $fresh = $age -lt 6
+          "fresh=$($fresh.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "age_seconds=$([int]($age * 60))" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Report expired queued brake
+        if: steps.freshness.outputs.fresh != 'true'
+        uses: actions/github-script@v7
         with:
           script: |
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `CODEX_BRAKE_V0_UNAVAILABLE\nstatus: UNAVAILABLE\nreason: ${process.env.CAPACITY_REASON || 'CAPACITY_UNKNOWN'}`
+              body: 'CODEX_BRAKE_V0_UNAVAILABLE\nstatus: UNAVAILABLE\nreason: EXPIRED_IN_QUEUE'
             });
 
-  falsifier:
-    needs: gate
-    if: needs.gate.outputs.packet_valid == 'true' && needs.gate.outputs.host_available == 'true'
-    runs-on: [self-hosted, windows, chatgpt-host]
-    timeout-minutes: 8
-    steps:
       - name: Build isolated falsifier prompt
+        if: steps.freshness.outputs.fresh == 'true'
         shell: powershell
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
@@ -142,6 +125,7 @@ jobs:
 
       - name: Run Sol-low falsifier
         id: codex
+        if: steps.freshness.outputs.fresh == 'true'
         shell: powershell
         continue-on-error: true
         run: |
@@ -161,7 +145,7 @@ jobs:
 
       - name: Normalize result
         id: normalize
-        if: steps.codex.outputs.rc == '0'
+        if: steps.freshness.outputs.fresh == 'true' && steps.codex.outputs.rc == '0'
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
@@ -195,7 +179,7 @@ jobs:
           "valid=$($valid.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Return valid brake result
-        if: steps.codex.outputs.rc == '0' && steps.normalize.outputs.valid == 'true'
+        if: steps.freshness.outputs.fresh == 'true' && steps.codex.outputs.rc == '0' && steps.normalize.outputs.valid == 'true'
         uses: actions/github-script@v7
         env:
           RESULT_PATH: ${{ runner.temp }}\reasoning-brake-v0\normalized.txt
@@ -219,7 +203,7 @@ jobs:
             });
 
       - name: Report Codex execution failure
-        if: steps.codex.outputs.rc != '0'
+        if: steps.freshness.outputs.fresh == 'true' && steps.codex.outputs.rc != '0'
         uses: actions/github-script@v7
         with:
           script: |
@@ -231,7 +215,7 @@ jobs:
             });
 
       - name: Report invalid model result
-        if: steps.codex.outputs.rc == '0' && steps.normalize.outputs.valid != 'true'
+        if: steps.freshness.outputs.fresh == 'true' && steps.codex.outputs.rc == '0' && steps.normalize.outputs.valid != 'true'
         uses: actions/github-script@v7
         with:
           script: |
