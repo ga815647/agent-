@@ -75,8 +75,10 @@ jobs:
           PROMPT_PATH: ${{ runner.temp }}\chatdev-opaque-result-prompt.txt
         run: |
           $ErrorActionPreference = 'Stop'
-          $nonceBytes = [Security.Cryptography.RandomNumberGenerator]::GetBytes(16)
-          $nonce = [Convert]::ToHexString($nonceBytes).ToLowerInvariant()
+          $nonceBytes = New-Object byte[] 16
+          $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+          try { $rng.GetBytes($nonceBytes) } finally { $rng.Dispose() }
+          $nonce = [BitConverter]::ToString($nonceBytes).Replace('-', '').ToLowerInvariant()
           $artifact = @(
             '# CHATDEV_OPAQUE_RESULT_V1',
             '',
