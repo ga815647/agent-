@@ -159,8 +159,8 @@ async function recoverDispatch(result) {
     const send = await firstVisible(page, SEND_BUTTON_SELECTORS);
     if (send) {
       const enabled = await send.isEnabled().catch(() => false);
-      if (enabled) await send.click();
-      else await composer.press('Enter');
+      if (!enabled) return { ...result, dispatch_recovery: 'SEND_BUTTON_DISABLED' };
+      await send.click();
     } else {
       await composer.press('Enter');
     }
