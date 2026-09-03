@@ -1,14 +1,14 @@
-# Chat Dev BRAIN — Goal-Aligned Control Gateway
+# Chat Dev BRAIN — Goal-Aligned Control Handler
 
 Status: ACTIVE DEFAULT — REVERSIBLE
 Promotion date: 2026-09-03
-Scope: caller-facing cognitive/control protocol. Historical filename retained for durable-pointer compatibility.
+Scope: goal-aligned cognitive/control handler entered from the binary caller route. Historical filename retained for durable-pointer compatibility.
 
 ## Goal
 
 BRAIN interrupts control-boundary momentum and makes the caller reason from the user's likely goal rather than merely execute the latest proposed means.
 
-BRAIN is not a second Orchestrator. It is a soft forcing protocol that makes the caller use the context already available to that caller, then applies only the operational controls needed for the pending boundary.
+BRAIN is not the caller sentinel and is not a second Orchestrator. The caller surface is intentionally smaller: `O` chooses only `ROUTE=DIRECT` or `ROUTE=BRAIN`; once entered, BRAIN uses the caller's existing context and applies only the operational controls needed for the pending boundary.
 
 It is not a deterministic runtime tool, model call, service, MCP, state machine, sandbox, output gate, or hard latch.
 
@@ -20,18 +20,30 @@ It is not a deterministic runtime tool, model call, service, MCP, state machine,
 - `USE_W` is valid only when caller = `O`.
 - When caller = `W`, any need for wider scope, new authority, or additional Worker execution resolves to `RETURN_TO_O`.
 
-## Invocation boundary
+## Caller entry / invocation boundary
 
-Use BRAIN before:
+After fresh-epoch bootstrap has loaded `Chat Dev｜Current`, every `O` turn uses only the binary caller route:
 
+- `ROUTE=DIRECT`
+- `ROUTE=BRAIN`
+
+Choose `ROUTE=BRAIN` before task execution when the turn approaches any of:
+
+- substantial bounded work where `W` may materially save O context or execution burden;
 - delegation / Worker handoff;
 - external mutation;
-- release of a commitment that has a required pending dependency;
+- release of a commitment or transition that has a required pending Worker / production Reviewer dependency;
 - consequential commitment.
 
-Ordinary direct reasoning that does not approach one of these boundaries stays direct and pays no BRAIN tax.
+Ordinary direct reasoning that does not approach one of these boundaries stays `ROUTE=DIRECT` and pays no BRAIN tax.
+
+There is no caller-facing `WAIT` or `W_CANDIDATE` route. Dependency blocking and Worker selection remain BRAIN/downstream semantics. Collapsing the visible route must not weaken either control.
+
+A short confirmation inherits the immediately preceding proposed action for boundary detection. If the inherited action crosses a BRAIN boundary, enter BRAIN; otherwise remain direct.
 
 The caller does not pre-classify downstream control families before entering BRAIN and does not need a magic phrase such as `BRAIN AUTO`.
+
+Fresh-epoch bootstrap is not owned by BRAIN: Project Instructions must fetch `Chat Dev｜Current` before normal assistant-visible response or task execution so the caller can learn the current route semantics without circular dependence.
 
 ## Input
 
@@ -81,15 +93,15 @@ For consequential reasoning, the escape pass is the default spare cycle: one bou
 
 After alignment / Goal Pass, apply only the controls required by the pending boundary.
 
-### Delegation
+### Worker routing
 
-`O` chooses direct work or `W` under canonical Worker semantics.
+For substantial bounded work, `O` chooses direct execution or `W` under canonical Worker semantics. `W` may be proactively discovered only through the binary `ROUTE=BRAIN` entry; no caller-facing `W_CANDIDATE` classification is required.
 
 Stage-1 remains narrow: only when the proposed Worker delegation/decomposition is both materially consequential if wrong and genuinely uncertain at dispatch time.
 
 ### Dependency
 
-A required Reviewer or Worker dependency blocks only the dependent acceptance / final / handoff until terminal, rerouted, cancelled, or otherwise cleared under canonical semantics.
+A required Reviewer or Worker dependency blocks only the dependent acceptance / final / handoff until terminal, rerouted, cancelled, or otherwise cleared under canonical semantics. BRAIN may return `WAIT`; no caller-facing `ROUTE=WAIT` is required.
 
 ### External mutation
 
@@ -130,13 +142,15 @@ These are protocol outcomes, not new authorities or runtime-enforced states.
 ## Runtime shape
 
 ```text
-ordinary work
+fresh O epoch
     ↓
-control boundary?
-    ├─ no → O DIRECT
-    └─ yes
-         ↓
-       BRAIN
+Project Instructions bootstrap: fetch Current before normal response/task execution
+    ↓
+every O turn
+    ↓
+ROUTE=DIRECT or ROUTE=BRAIN
+    ├─ DIRECT → ordinary O work
+    └─ BRAIN
          ↓
        cheap goal/means alignment gate
          ├─ clear → operational controls
@@ -145,8 +159,10 @@ control boundary?
              Goal Pass by caller
                 ↓
              operational controls
-                ↓
-             independent review only if HARD A-E
+                ├─ CONTINUE / REVISE / VERIFY
+                ├─ USE_W
+                ├─ WAIT
+                └─ independent review only if HARD A-E
 ```
 
 Underlying Worker authority, Stage-1, dependency join, Mutation Lock, and reviewer execution semantics remain canonical in their existing durable sources.
@@ -156,19 +172,22 @@ Underlying Worker authority, Stage-1, dependency join, Mutation Lock, and review
 Promotion evidence included:
 
 - prior live failures showing distributed Stage-1 / Reviewer-join recall can fail;
-- three-arm caller-control proxy showing the thin BRAIN entry was viable with low caller surface, but not proving natural-use superiority;
+- three-arm caller-control proxy showing the thin BRAIN entry was viable with low caller surface, but not proving natural-use superiority over a smaller high-salience sentinel;
+- live v28 fresh-epoch evidence showing a Current-only first-visible-line route rule can be missed before Current is fetched, motivating an external bootstrap kernel;
+- a natural v28 `W_CANDIDATE` false positive on a small read-only continuation, supporting removal of caller-side downstream pre-classification;
 - goal-first design reviews that rejected mandatory latent-goal re-inference and O-confidence reviewer self-waiver;
-- natural reviewer cases supporting independent review at durable control/authority boundaries;
-- frozen v0/v1 representative traces showing no authority, join, mutation, or hard-review invariant regressions after correcting one real goal-vs-operational uncertainty ambiguity;
-- independent adjudication that the sole v1 exact-action mismatch (`ANSWER_DIRECT` vs `CONTINUE` on a non-boundary trace) had no material semantic consequence;
-- production Sol-low promotion review PASS.
+- frozen v0/v1 representative traces showing no authority, join, mutation, or hard-review invariant regressions after correcting one real goal-vs-operational uncertainty ambiguity.
+
+The binary promotion preserves proactive Worker discovery by making W-worthiness itself a BRAIN-entry trigger and preserves dependency blocking by keeping `WAIT` as a BRAIN/downstream result.
 
 This supports a reversible production semantic promotion, not a claim of deterministic enforcement or statistically proven natural long-context reliability.
 
 ## Stop / revise rule
 
-Revise or roll back if natural use shows that BRAIN:
+Revise or roll back if natural use shows that the binary caller surface or BRAIN:
 
+- causes repeated missed Worker opportunities that materially consume O context;
+- makes required dependency release easier to cross;
 - causes repeated latent-goal over-inference on explicit/simple requests;
 - recreates per-turn ceremony;
 - makes operational controls easier to skip;
@@ -176,4 +195,4 @@ Revise or roll back if natural use shows that BRAIN:
 - weakens independent review on material hard-boundary commitments;
 - becomes another hidden Orchestrator rather than a forcing protocol.
 
-Hard enforcement still requires a runtime surface that actually owns dispatch/output/action release; BRAIN does not provide one.
+Hard enforcement still requires a runtime surface that actually owns dispatch/output/action release; the binary latch and BRAIN do not provide one.
