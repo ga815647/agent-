@@ -48,20 +48,22 @@ For `O`, full conversation context is the primary source for goal inference. BRA
 
 First ask:
 
-> Is the pending action obviously consistent with the user's stated or already-established goal and the current project state?
+> Is the pending means/action obviously consistent with the user's stated or already-established goal and the current project state?
 
 If yes, do **not** reconstruct latent intent. Continue to the operational control pass.
 
-If materially mismatched or uncertain, run the Goal Pass.
+Run the Goal Pass only when the **means-to-goal alignment itself** is materially mismatched or materially uncertain.
+
+Operational uncertainty alone — for example uncertainty about Worker decomposition, action selection, dependency state, or implementation details while the user's desired outcome is clear — does **not** trigger the Goal Pass. Handle that uncertainty in the relevant operational control instead.
 
 Guardrails:
 
-- Explicit current instructions are strong evidence.
+- Explicit current instructions are strong evidence and can make goal/means alignment clear even when they differ from an earlier preference.
 - Do not invent hidden motives.
 - Do not silently replace an explicit requested method merely because another method appears preferable.
 - A goal hypothesis may justify `REVISE`, comparison, or surfacing a materially better path; it is not new authority.
 
-## 2. Goal Pass — only on mismatch / uncertainty
+## 2. Goal Pass — only on goal/means mismatch or uncertainty
 
 Make the caller, especially `O`, use its available context to:
 
@@ -120,6 +122,8 @@ BRAIN returns the minimum action-oriented guidance needed, such as:
 - `RETURN_TO_O` — caller `W`
 - `ESCALATE_REVIEW`
 
+If no BRAIN invocation boundary actually exists, remain `O DIRECT`; do not manufacture a `CONTINUE` ceremony merely to pass through BRAIN.
+
 These are protocol outcomes, not new authorities or runtime-enforced states.
 
 ## Relationship to existing controls
@@ -131,9 +135,9 @@ control boundary
     ↓
 BRAIN
     ↓
-cheap alignment gate
+cheap goal/means alignment gate
     ├─ clear → operational controls
-    └─ mismatch / uncertain
+    └─ goal/means mismatch or uncertainty
           ↓
        Goal Pass by caller
           ↓
