@@ -29,7 +29,7 @@ After fresh-epoch bootstrap has loaded `Chat Dev｜Current`, every `O` turn uses
 
 Choose `ROUTE=BRAIN` before task execution when the turn approaches any of:
 
-- substantial bounded work where `W` may materially save O context or execution burden;
+- bounded execution that may qualify for Worker offload under BRAIN's current Worker-eligibility / dispatch-worthiness test;
 - delegation / Worker handoff;
 - external mutation;
 - release of a commitment or transition that has a required pending Worker / production Reviewer dependency;
@@ -95,7 +95,41 @@ After alignment / Goal Pass, apply only the controls required by the pending bou
 
 ### Worker routing
 
-For substantial bounded work, `O` chooses direct execution or `W` under canonical Worker semantics. `W` may be proactively discovered only through the binary `ROUTE=BRAIN` entry; no caller-facing `W_CANDIDATE` classification is required.
+**Purpose:** `O` owns trajectory; `W` absorbs bounded execution. Worker use exists to protect O's orchestration state / execution context, not to create an independent decision-maker.
+
+#### Gate A — Worker-eligible
+
+A segment is Worker-eligible only when all are true:
+
+- objective / expected return can be defined before dispatch;
+- scope, authority, and out-of-scope boundary can be defined before dispatch;
+- stop condition / useful checkpoint can be defined before dispatch;
+- `W` can reach that checkpoint without `O` steering project trajectory mid-execution.
+
+Trajectory decisions, final acceptance, Reviewer-challenge resolution, formal commitment, and canonical promotion stay with `O`.
+
+#### Gate B — Dispatch-worthy for the current MANUAL Worker lane
+
+Eligibility alone does not justify manual dispatch. Current manual transport has a real fixed tax: one human dispatch + one human return/join. Use `W` only when that tax is clearly repaid.
+
+For the current manual lane, prefer `USE_W` only when:
+
+- the eligible segment can complete with one dispatch and one return, without mid-course human relay; and
+- either it is expected to contain at least **two adaptive execution loops** before the checkpoint, or it is a genuinely broad bounded audit / research / build / migration segment that would otherwise accumulate substantial intermediate repo/source/artifact state inside `O`.
+
+An **adaptive execution loop** is a bounded cycle in which newly acquired evidence can change the next execution action before verification/checkpoint.
+
+Keep the work in `O` when it is a short, tightly coupled single loop that `O` can finish in one compact direct pass. Do **not** infer `USE_W` merely because a task has several mechanical phases or a brief `test → fix → retest` sequence.
+
+Representative routing:
+
+- one-file edit → test → obvious fix/retest: `O`;
+- narrow 1–2 source lookup/synthesis: `O`;
+- broad repo audit producing an evidence packet: `W` candidate;
+- accepted-state reconstruction → staging/build → validation/package: `W` candidate;
+- final acceptance / hard-review resolution / canonical promotion: `O`.
+
+If Worker transport later becomes low-friction or automatic, revise Gate B threshold without changing Gate A or O/W authority semantics.
 
 Stage-1 remains narrow: only when the proposed Worker delegation/decomposition is both materially consequential if wrong and genuinely uncertain at dispatch time.
 
@@ -180,6 +214,8 @@ Promotion evidence included:
 
 The binary promotion preserves proactive Worker discovery by making W-worthiness itself a BRAIN-entry trigger and preserves dependency blocking by keeping `WAIT` as a BRAIN/downstream result.
 
+A natural v29 GitHub Pages migration trace later showed correct BRAIN / Reviewer / canonical-hold behavior but also a clear under-delegation signal: `O` absorbed an 8m46s bounded reconstruction/staging/validation segment that could have returned a useful execution checkpoint. A production review of the proposed routing refinement returned `CHALLENGE` against a blanket multi-phase/iterative `USE_W` default; the rule was therefore narrowed so short tightly coupled loops stay in `O`, while the manual lane dispatches only eligible work whose bounded execution clearly repays one human dispatch + one human return/join.
+
 This supports a reversible production semantic promotion, not a claim of deterministic enforcement or statistically proven natural long-context reliability.
 
 ## Stop / revise rule
@@ -187,6 +223,7 @@ This supports a reversible production semantic promotion, not a claim of determi
 Revise or roll back if natural use shows that the binary caller surface or BRAIN:
 
 - causes repeated missed Worker opportunities that materially consume O context;
+- creates repeated manual Worker handoffs whose user scheduling/join friction outweighs the orchestration-state benefit;
 - makes required dependency release easier to cross;
 - causes repeated latent-goal over-inference on explicit/simple requests;
 - recreates per-turn ceremony;
