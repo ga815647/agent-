@@ -1,6 +1,6 @@
 # Chat Dev Control Plane v0
 
-Status: FROZEN BASELINE — ACTIVE / REVERSIBLE
+Status: ACTIVE BASELINE — REVERSIBLE
 Promotion date: 2026-09-03
 Scope: cross-project Chat Dev orchestration semantics.
 
@@ -9,32 +9,31 @@ Public architecture authority remains this repository. Private reviewer executio
 ## 1. Canonical path
 
 ```text
-new task / new Orchestrator epoch
+new Orchestrator epoch
         ↓
-O THIN FRAME
-   ├─ O DIRECT
-   └─ MANUAL BOUNDED WORKER
-         ↓
-      O emits ready-to-paste Worker prompt
-         ↓
-      user opens fresh Worker Chat
-         ↓
-      user pastes complete Worker result back to O
-         ↓
-      O validates / accepts evidence
+Project Instructions bootstrap
+fetch Chat Dev｜Current before normal assistant-visible response/task execution
         ↓
-O forms provisional decision when a consequential commitment exists
+every O turn
         ↓
-trigger-qualified?
-   ├─ no → O FINAL
-   └─ yes → PRIVATE REASONING BRAKE → O resolves → FINAL
+ROUTE=DIRECT or ROUTE=BRAIN
+   ├─ DIRECT → O DIRECT
+   └─ BRAIN
+        ├─ CONTINUE / REVISE / VERIFY → O
+        ├─ USE_W → MANUAL BOUNDED WORKER → O validates / accepts evidence
+        ├─ WAIT → block only the dependent transition
+        └─ ESCALATE_REVIEW → PRIVATE REASONING BRAKE → O resolves
+        ↓
+O FINAL / commitment when applicable
 ```
 
 The Orchestrator alone owns routing, Worker-result acceptance, formal state transitions, commitment, and final synthesis.
 
-Worker/Sol return does not automatically rerun THIN FRAME. Re-enter only when routing-relevant state materially changes or rerouting is required.
+The visible caller route is intentionally binary. `WAIT` and Worker selection are downstream BRAIN/control outcomes, not caller pre-classifications. Collapsing the route does not weaken dependency joins, Worker authority boundaries, Mutation Lock, Stage-1, or hard A-E review.
 
-## 2. Context lifecycle
+Worker/Reviewer return does not automatically rerun the caller route beyond the normal next-turn latch. Re-enter BRAIN only when the next action again approaches a BRAIN boundary.
+
+## 2. Context lifecycle / bootstrap
 
 `ROLLOVER` is same-role Orchestrator context-epoch renewal, not execution delegation or a role handoff.
 
@@ -42,22 +41,41 @@ Sequence:
 1. Preserve only necessary non-durable edge state.
 2. End the current O epoch.
 3. Start a fresh O with the same role/authority/workstream.
-4. Rehydrate from `Chat Dev｜Current → relevant Project Profile → repo/current durable truth → rollover checkpoint when present`.
-5. Run THIN FRAME before execution routing.
+4. **Before any normal assistant-visible response or task execution, Project Instructions fetch `Chat Dev｜Current`.** This bootstrap invariant must live outside Current because a Current-only rule cannot bootstrap its own load.
+5. Rehydrate from `Chat Dev｜Current → relevant Project Profile → repo/current durable truth → rollover checkpoint when present`.
+6. Before task execution on each O turn, emit the current binary caller route from Current.
 
 Invariant:
 
-`new task / new Orchestrator epoch → THIN FRAME before execution routing`
+`new O epoch → bootstrap Current before normal response/task execution → binary route before task execution`
 
-Do not restore a stateful Harness latch or mandatory FRAME/REVIEW/SYNTHESIZE ceremony.
+This is a soft caller protocol, not a deterministic output/dispatch latch. Do not claim fail-closed enforcement.
 
-## 3. Execution routing
+Do not restore a stateful Harness service or mandatory FRAME/REVIEW/SYNTHESIZE ceremony.
+
+## 3. Binary caller routing and execution routing
+
+### ROUTE=DIRECT
+Use O directly when the turn does not approach a BRAIN boundary. Ordinary lookup, explanation, translation, mechanical transformation, simple judgment, and direct work remain here unless their actual effect independently crosses a boundary.
+
+### ROUTE=BRAIN
+Enter BRAIN before task execution when the turn approaches any of:
+
+- substantial bounded work where `W` may materially save O context or execution burden;
+- delegation / Worker handoff;
+- external mutation;
+- release of a required pending Worker / production Reviewer dependency;
+- consequential commitment.
+
+A short confirmation inherits the immediately preceding proposed action for boundary detection. The caller does not classify `WAIT`, `W_CANDIDATE`, Mutation Lock, Stage-1, or Reviewer families itself; BRAIN applies only the downstream controls actually needed.
+
+Canonical BRAIN semantics: `chat-dev-control-plane-v0/BRAIN-AUTO-PILOT.md`.
 
 ### O DIRECT
 Use O directly when delegation overhead exceeds the likely context/latency benefit or the task requires continuous Orchestrator judgment.
 
 ### MANUAL BOUNDED WORKER
-Delegate substantial bounded execution when a Worker can reach a useful checkpoint without continuous O judgment and doing the work directly would materially consume O context.
+Within BRAIN, select `W` for substantial bounded execution when a Worker can reach a useful checkpoint without continuous O judgment and doing the work directly would materially consume O context.
 
 Production Worker transport is human-mediated:
 - O emits a compact routing header plus ready-to-paste bounded Worker prompt;
@@ -73,11 +91,18 @@ Worker prompts contain only the execution contract needed by the Worker: objecti
 ### Narrow pre-execution Sol exception
 Sol is not a universal pre-Worker gate. One pre-execution review is allowed only when routing/decomposition itself is both materially consequential if wrong and genuinely uncertain. Sol returns to O and has no dispatch authority.
 
-## 4. Reasoning Brake
+## 4. Dependency, mutation, and Reasoning Brake
 
+### Dependency join
+A required Reviewer or Worker dependency blocks only the **dependent** acceptance / final / handoff until terminal, explicitly rerouted/cancelled, or otherwise cleared under canonical semantics. `WAIT` is a BRAIN/downstream outcome; there is no caller-facing `ROUTE=WAIT`.
+
+### External mutation
+External mutation applies `chat-dev-control-plane-v0/MUTATION-LOCK.md`: bind mutation effect, target resource type, and exact target identity/destination before choosing a write action. The binary caller route does not replace Mutation Lock.
+
+### Reasoning Brake
 Canonical runtime: `reasoning-brake-v0/RUNTIME.md`.
 
-Trigger only for consequential commitments where a missed framing, assumption, alternative, or evidence problem could materially change the decision. Ordinary reversible routing, simple deterministic acceptance, lookup, translation, and mechanical work do not trigger solely because judgment is present.
+External review is effect-gated. Trigger one production independent review only when the pending commitment meets at least one hard A-E effect from RUNTIME: durable/canonical/control change; authority/safety/dependency boundary; material external effect not fully rollback-neutralized; costly/hard-to-reverse commitment; or residual decision-controlling uncertainty/evidence conflict.
 
 Production external lane:
 
@@ -100,7 +125,7 @@ O
 Current reviewer policy at promotion: `gpt-5.6-sol`, reasoning `low`.
 
 Properties:
-- exactly one falsifier;
+- exactly one production-authoritative falsifier;
 - Reviewer lane only, no Worker/dispatch authority;
 - model/effort are controlled by private repo policy, not VPS-local service config;
 - no `OPENAI_API_KEY` production dependency;
@@ -112,9 +137,9 @@ Properties:
 
 Once O dispatches a qualifying production review, that review is a required dependency of the **specific reviewed commitment**. Until a validated terminal production result, explicit reviewer unavailability, explicit user reroute/cancel, or bounded-budget expiry followed by the defined O-local fallback, O must not communicate, rely on, accept, hand off, or finalize that commitment. Progress updates and unrelated replies may proceed, but unrelated replies must not embed or transfer the pending commitment. The temporary shadow review is never a blocking dependency.
 
-If the external reviewer is unsafe/unavailable/timed out, do not auto-retry and do not fall back to the retired Windows lane. Every trigger-qualified consequential decision receives one O-local minimum falsification check. High-cost/hard-to-reverse decisions with unresolved decision-controlling uncertainty remain tentative/blocked until verified.
+If the external reviewer is unsafe/unavailable/timed out, do not auto-retry and do not fall back to the retired Windows lane. Every trigger-qualified commitment receives one O-local minimum falsification check. High-cost/hard-to-reverse decisions with unresolved decision-controlling uncertainty remain tentative/blocked until verified.
 
-Full VPS host reboot recovery was not live-validated at promotion. Service restart/reconnect and post-restart review were validated. This is an availability uncertainty, not permission to silently restore local orchestration substrate.
+Full VPS host reboot recovery was not live-validated at original reviewer promotion. Service restart/reconnect and post-restart review were validated. This is an availability uncertainty, not permission to silently restore local orchestration substrate.
 
 ## 5. Privacy / result boundary
 
@@ -130,15 +155,19 @@ This does **not** claim a general arbitrary-size private Worker artifact backend
 
 GitHub Secrets are credentials only when genuinely required; they are not conversation, packet, result, or artifact transport.
 
-## 6. Retired normal-runtime paths
+## 6. Retired / non-canonical caller surfaces
 
-The following remain historical evidence but are retired from the production default:
+The following remain historical evidence but are not the production caller surface:
+- caller-facing four-way `ROUTE=DIRECT / ROUTE=BRAIN / ROUTE=W_CANDIDATE / ROUTE=WAIT` v28 latch;
+- caller-side THIN FRAME classification as a separate mandatory routing ceremony;
 - automatic fresh-Chat Worker transport;
 - persistent Windows/browser Worker orchestration;
 - Windows self-hosted Sol-low production reviewer;
 - public `CODEX-BRAKE-V0|` Issue → Windows runner path;
 - copied `CODEX_AUTH_JSON` ephemeral auth;
 - API-key-backed remote Sol candidate from `SIMPLIFICATION_CANDIDATE_V1.md`.
+
+The useful routing semantics of THIN FRAME survive inside the binary BRAIN entry and Worker-routing control; only the separate caller ceremony is retired.
 
 Do not use historical lanes as silent fallback. Re-activation requires an explicit new decision.
 
@@ -148,16 +177,19 @@ Local tooling may still be used to debug evidence that genuinely exists only on 
 
 Before binding project-specific shorthand to durable meaning, use the current conversation plus already-loaded durable truth first. Only when two or more materially different referents remain viable and choosing wrong would materially change the answer/route/commitment should O perform one targeted durable read or surface the ambiguity. Do not broadly reload durable sources for ordinary unambiguous language.
 
-## 8. Evidence
+## 8. Evidence / promotion interpretation
 
 Earlier architecture / Reasoning Brake evidence remains in public Issues #49, #51–#55, #58, #65–#66, #69 and the historical PoCs referenced by prior revisions.
 
-2026-09-03 private-runtime promotion evidence:
-- `ga815647/chatdev-exec` private Issue #13: ChatGPT-originated E2E PASS;
-- private Issue #14: ChatGPT-originated E2E materially correct CHALLENGE;
-- private Issue #15: promotion review CHALLENGE on untested full-host reboot recovery; baseline narrowed to mark that recovery property unverified and retain safe O-local fallback on reviewer unavailability;
-- private repo policy mutability and runner service restart/reconnect were validated before promotion.
+Binary caller-surface promotion evidence on 2026-09-03:
+- a live fresh-epoch miss showed that a first-visible-line rule stored only in Current can be violated before Current is fetched;
+- a natural small read-only continuation was classified `W_CANDIDATE`, demonstrating caller-side downstream-classification false-positive risk;
+- the frozen three-arm caller-control proxy did **not** establish material safety superiority of generalized BRAIN over the simpler high-salience sentinel, supporting separation of caller salience from BRAIN handler semantics;
+- BRAIN already owns `WAIT` and `USE_W`, so caller-facing `WAIT`/`W_CANDIDATE` were redundant once W-worthiness and pending-dependency release were made explicit BRAIN-entry triggers;
+- fresh production review for this promotion was explicitly `UNAVAILABLE` in the private execution plane; per canonical RUNTIME, O did not auto-retry or switch reviewer substrates and instead ran exactly one local minimum falsification check. The strongest concern—loss of Worker/dependency salience after route collapse—was resolved by preserving both as explicit BRAIN-entry/downstream semantics.
+
+This promotion is reversible and soft. It does **not** establish deterministic enforcement or statistically proven natural long-context recall superiority. Roll back or revise if natural use shows increased missed Worker opportunities, dependency-release errors, or other control regressions.
 
 ## 9. Next priority
 
-Collect natural real-use Reasoning Brake cases and watch false-positive/false-negative behavior. Do not expand transport or restore automation merely for symmetry. Add a lane only after a concrete capability need or failure mode is demonstrated.
+Use the binary caller surface in natural work and watch false-positive/false-negative behavior, especially fresh-epoch bootstrap, proactive Worker discovery, and dependency release. Do not add more caller route classes without a concrete live failure that cannot be handled inside BRAIN.
