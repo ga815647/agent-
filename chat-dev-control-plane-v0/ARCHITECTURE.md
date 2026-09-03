@@ -110,6 +110,8 @@ Properties:
 
 `PASS` → continue. `CHALLENGE` → O must resolve, verify, narrow, or reject the material issue before commitment.
 
+Once O dispatches a qualifying production review, that review is a required dependency of the **specific reviewed commitment**. Until a validated terminal production result, explicit reviewer unavailability, explicit user reroute/cancel, or bounded-budget expiry followed by the defined O-local fallback, O must not communicate, rely on, accept, hand off, or finalize that commitment. Progress updates and unrelated replies may proceed, but unrelated replies must not embed or transfer the pending commitment. The temporary shadow review is never a blocking dependency.
+
 If the external reviewer is unsafe/unavailable/timed out, do not auto-retry and do not fall back to the retired Windows lane. Every trigger-qualified consequential decision receives one O-local minimum falsification check. High-cost/hard-to-reverse decisions with unresolved decision-controlling uncertainty remain tentative/blocked until verified.
 
 Full VPS host reboot recovery was not live-validated at promotion. Service restart/reconnect and post-restart review were validated. This is an availability uncertainty, not permission to silently restore local orchestration substrate.
