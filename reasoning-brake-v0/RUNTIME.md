@@ -1,29 +1,70 @@
-# Chat Dev Reasoning Brake v0 — Runtime
+# Chat Dev Reasoning Brake — Runtime
 
 Status: ACTIVE DEFAULT — REVERSIBLE
 Promotion date: 2026-09-03
-Scope: consequential decision / commitment braking only. Worker routing remains separate.
+Scope: independent hard-commitment review after BRAIN goal/alignment reasoning. Worker routing remains separate.
 
-Goal: interrupt conversation momentum before consequential commitment without making every answer pay a review tax.
+Goal: preserve independent protection against correlated Orchestrator blind spots without making falsification the default personality of Chat Dev reasoning or making every consequential judgment pay an external-review tax.
 
 ## Trigger
 
-Do not trigger merely for lookup, translation, mechanical transformation, simple status, deterministic acceptance, or ordinary reversible routing.
+Do not trigger merely because a response contains judgment, recommendation, prioritization, architecture exploration, research acceptance, or a reversible proposal.
 
-Trigger when O is about to make a material recommendation, prioritization, architecture direction, proposal acceptance/rejection, irreversible/costly action, or another consequential commitment where a missed framing, assumption, alternative, or evidence defect could materially change the decision.
+Run one production independent review when the pending commitment meets at least one condition:
 
-Ordinary Worker routing/decomposition is separate. One pre-execution Sol review is allowed only when the route/decomposition itself is both materially consequential if wrong and genuinely uncertain.
+A. **Durable/canonical change** — changes or promotes production baseline, canonical architecture, or control semantics.
+
+B. **Authority/safety boundary** — changes actor authority, safety/privacy/security boundaries, or dependency enforcement.
+
+C. **Material external effect** — creates a material external impact or commitment whose consequences extend beyond local reasoning/workspace and cannot be fully neutralized by technical rollback; examples include public/third-party communication, money, production/user impact, or destructive/large-scale state change.
+
+D. **Cost / irreversibility** — is otherwise costly or hard to reverse.
+
+E. **Residual epistemic risk** — after the BRAIN/O goal and alternative pass, material evidence conflict or decision-controlling uncertainty remains.
+
+Caller confidence does not waive A-E.
+
+Do not trigger solely for:
+
+- reversible architecture/research exploration;
+- accepting evidence as sufficient to run another bounded experiment;
+- ordinary prioritization or sequencing;
+- tentative / no-change / do-not-promote-yet recommendations;
+- local reversible work;
+- ordinary lookup, translation, mechanical transformation, status, or deterministic acceptance;
+
+unless the actual commitment effect independently meets A-E.
+
+Judge by effect, not by labels such as `experiment`, `proposal`, `reversible`, or `temporary`. A technically rollbackable action can still meet C when the external consequence cannot be fully undone.
+
+Ordinary Worker routing/decomposition remains separate. One pre-execution Sol review is allowed only when the route/decomposition itself is both materially consequential if wrong and genuinely uncertain.
+
+## Relationship to BRAIN
+
+BRAIN is the caller-facing forcing protocol.
+
+Before this external lane is considered, BRAIN has already:
+
+1. run its cheap goal/means alignment gate;
+2. forced an O Goal Pass only when the means-to-goal alignment itself was materially mismatched or uncertain;
+3. applied relevant routing/dependency/mutation controls;
+4. classified whether the pending commitment meets A-E.
+
+Operational uncertainty alone does not imply a Goal Pass. For example, uncertain Worker decomposition with a clear user goal is handled by the narrow Stage-1 routing control rather than by latent-goal reconstruction.
+
+`ESCALATE_REVIEW` means the pending commitment meets this external-review gate. BRAIN does not itself perform the independent review.
 
 ## Sequence
 
-1. O reasons normally and forms a compact provisional decision.
-2. Build the minimum reviewer packet below. Never send the full conversation when a smaller packet is sufficient.
-3. If the packet is appropriate for private GitHub storage, open exactly one qualifying Issue in private `ga815647/chatdev-exec`.
-4. Treat the production Sol-low reviewer as a bounded decision dependency for at most 8 minutes from dispatch.
-5. **Reviewer join:** once the qualifying production review is dispatched, it is a required dependency of the specific reviewed commitment until a validated terminal production result, explicit reviewer unavailability, explicit user reroute/cancel, or expiry of the bounded review budget followed by the defined O-local fallback. While that dependency is pending, O may report progress and may answer unrelated requests, but must not communicate, rely on, accept, hand off, or finalize the reviewed commitment. Unrelated replies must not embed or transfer the pending commitment. The temporary shadow review is never a blocking dependency.
-6. `PASS`: continue. `CHALLENGE`: O must explicitly resolve, verify, narrow, or reject the material issue before commitment.
-7. If the production reviewer is unsafe to use, returns unavailable, or has no terminal result within the O budget, do not retry automatically and do not fall back to the retired Windows lane. Run one O-local minimum falsification check instead: identify the strongest material reason the provisional decision could be wrong and resolve it once.
-8. For high-cost/hard-to-reverse commitments, unresolved decision-controlling uncertainty after that check means verify first or keep the decision tentative/blocked.
+1. `O` reasons normally and, when needed, performs BRAIN goal/alignment reasoning using the fuller conversation/project context available to O.
+2. `O` forms the minimum provisional hard commitment and decisive evidence.
+3. If no A-E condition applies, continue without an external review.
+4. If any A-E condition applies, build the minimum reviewer packet below and dispatch exactly one qualifying production review.
+5. Treat the production Sol-low reviewer as a bounded decision dependency for at most 8 minutes from dispatch.
+6. **Reviewer join:** once the qualifying production review is dispatched, it is a required dependency of the specific reviewed commitment until a validated terminal production result, explicit reviewer unavailability, explicit user reroute/cancel, or expiry of the bounded review budget followed by the defined O-local fallback. While that dependency is pending, O may report progress and may answer unrelated requests, but must not communicate, rely on, accept, hand off, or finalize the reviewed commitment. Unrelated replies must not embed or transfer the pending commitment. The temporary shadow review is never a blocking dependency.
+7. `PASS`: continue. `CHALLENGE`: O must explicitly resolve, verify, narrow, or reject the material issue before commitment.
+8. If the production reviewer is unsafe to use, returns unavailable, or has no terminal result within the O budget, do not retry automatically and do not fall back to the retired Windows lane. Run one O-local minimum falsification check instead: identify the strongest material reason the provisional commitment could be wrong and resolve it once.
+9. For high-cost/hard-to-reverse commitments, unresolved decision-controlling uncertainty after that check means verify first or keep the decision tentative/blocked.
 
 The production external falsifier is evidence only. O remains the sole decision/acceptance authority.
 
@@ -149,13 +190,14 @@ The brake is Reviewer, never Worker.
 - It does not perform implementation/research.
 - It does not recursively dispatch.
 - Sol never decides Worker routing.
+- Stage-1 delegation review remains separate and narrow under `STAGE1-PILOT.md`: only when Worker delegation/decomposition is materially consequential if wrong **and** genuinely uncertain; Reviewer never routes or dispatches; `O` explicitly re-decides after a blocking Stage-1 result.
 - If a post-decision challenge exposes a material execution/evidence gap, O may issue a manual bounded Worker prompt, accept the returned evidence, and rebuild the decision.
-- Do not automatically run another production Sol after Worker return. Re-run only if the rebuilt commitment independently remains trigger-qualified.
+- Do not automatically run another production Sol after Worker return. Post-Worker independent review uses the A-E effect gate on O's rebuilt commitment; Worker use alone does not trigger review.
 - Worker/reviewer return does not automatically rerun THIN FRAME; re-enter only on material routing-state change/reroute need.
 
 ## Availability boundary
 
-Validated before promotion:
+Validated before the original external-lane promotion:
 - VPS subscription Codex canary: PASS;
 - known PASS and CHALLENGE reviewer canaries: PASS;
 - GitHub-side model/effort mutability: PASS;
@@ -164,18 +206,28 @@ Validated before promotion:
 - ChatGPT connector private read/write: PASS;
 - repeated ChatGPT-originated full E2E reviewer path: PASS and CHALLENGE.
 
-Not live-validated at promotion:
+Not live-validated at original promotion:
 - full VPS host reboot recovery.
 
-This is explicitly an availability uncertainty. If a host reboot leaves the reviewer unavailable, apply the O-local fallback; never silently restore the retired Windows lane.
+This remains an availability uncertainty. If a host reboot leaves the reviewer unavailable, apply the O-local fallback; never silently restore the retired Windows lane.
 
 ## Validation evidence
 
 Private `ga815647/chatdev-exec`:
 - Issue #13: ChatGPT-created E2E PASS → VPS subscription reviewer → private result → ChatGPT readback.
 - Issue #14: ChatGPT-created E2E CHALLENGE; correctly identified an untested rollback prerequisite.
-- Issue #15: promotion review CHALLENGE identified untested full-host reboot recovery; O accepted the challenge by narrowing the production claim and retaining safe unavailability fallback.
+- Issue #15: original promotion review CHALLENGE identified untested full-host reboot recovery; O accepted the challenge by narrowing the production claim and retaining safe unavailability fallback.
 - Issue #25: live dual-review canary; Sol-low primary and Luna-max shadow both completed independently on the same packet.
+- Issues #27–#31: natural durable control/authority decisions where production CHALLENGEs materially narrowed the commitment.
+- Issues #16, #18, #19: reversible exploration/no-change-type decisions that production Sol-low passed.
+- Issue #77: rejected O-confidence as a reviewer self-waiver.
+- Issue #78: identified technically reversible but externally non-reversible impact as a required hard class.
+- Issue #79: production Sol-low PASSed the resulting A-E effect gate design.
+- Issue #82: frozen BRAIN vNext v0 trace run; 17/17 available, 14/17 exact, zero control-invariant failures; later adjudication separated one real ambiguity from two rubric defects.
+- Issue #83: independent v0 failure adjudication.
+- Issue #85: frozen v1 trace run after minimum correction; 17/17 available, 16/17 exact, zero unnecessary/missed Goal Pass, zero unnecessary/missed external review, zero control-invariant failures.
+- Issue #86: production Sol-low PASSed adjudication of the sole v1 exact-action mismatch as having no material issue.
+- Issue #87: production Sol-low promotion review PASS for the narrow goal-first + A-E production semantic promotion.
 
 Historical public evidence remains in `ga815647/agent-` Issues #49, #51–#55, #58, #65–#66, #69. Historical Issue #48 remains evidence against copied subscription auth on ephemeral runners.
 
@@ -189,6 +241,8 @@ The following are not normal-runtime fallback:
 
 ## Rollback
 
-Rollback the private external lane by disabling its use in Current/RUNTIME and using the O-local minimum falsification path. Do **not** silently re-enable the historical Windows reviewer. Re-activating any retired external substrate requires an explicit new change and validation.
+The goal-first/effect-gated semantic change is reversible independently of reviewer infrastructure. If natural use shows missed hard commitments or excessive goal inference, restore the prior broad consequential-decision trigger / prior caller entry while keeping the proven private reviewer lane available.
+
+Rollback the private external lane itself by disabling its use in Current/RUNTIME and using the O-local minimum falsification path. Do **not** silently re-enable the historical Windows reviewer. Re-activating any retired external substrate requires an explicit new change and validation.
 
 Rollback the temporary shadow overlay independently by disabling/removing the private shadow workflow and shadow policy files; this must not change the production Sol-low lane.
