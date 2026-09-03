@@ -20,9 +20,10 @@ Ordinary Worker routing/decomposition is separate. One pre-execution Sol review 
 2. Build the minimum reviewer packet below. Never send the full conversation when a smaller packet is sufficient.
 3. If the packet is appropriate for private GitHub storage, open exactly one qualifying Issue in private `ga815647/chatdev-exec`.
 4. Treat the production Sol-low reviewer as a bounded decision dependency for at most 8 minutes from dispatch.
-5. `PASS`: continue. `CHALLENGE`: O must explicitly resolve, verify, narrow, or reject the material issue before commitment.
-6. If the production reviewer is unsafe to use, returns unavailable, or has no terminal result within the O budget, do not retry automatically and do not fall back to the retired Windows lane. Run one O-local minimum falsification check instead: identify the strongest material reason the provisional decision could be wrong and resolve it once.
-7. For high-cost/hard-to-reverse commitments, unresolved decision-controlling uncertainty after that check means verify first or keep the decision tentative/blocked.
+5. **Reviewer join:** once the qualifying production review is dispatched, it is a required dependency of the specific reviewed commitment until a validated terminal production result, explicit reviewer unavailability, explicit user reroute/cancel, or expiry of the bounded review budget followed by the defined O-local fallback. While that dependency is pending, O may report progress and may answer unrelated requests, but must not communicate, rely on, accept, hand off, or finalize the reviewed commitment. Unrelated replies must not embed or transfer the pending commitment. The temporary shadow review is never a blocking dependency.
+6. `PASS`: continue. `CHALLENGE`: O must explicitly resolve, verify, narrow, or reject the material issue before commitment.
+7. If the production reviewer is unsafe to use, returns unavailable, or has no terminal result within the O budget, do not retry automatically and do not fall back to the retired Windows lane. Run one O-local minimum falsification check instead: identify the strongest material reason the provisional decision could be wrong and resolve it once.
+8. For high-cost/hard-to-reverse commitments, unresolved decision-controlling uncertainty after that check means verify first or keep the decision tentative/blocked.
 
 The production external falsifier is evidence only. O remains the sole decision/acceptance authority.
 
