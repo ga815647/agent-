@@ -61,7 +61,7 @@ Use O directly when the turn does not approach a BRAIN boundary. Ordinary lookup
 ### ROUTE=BRAIN
 Enter BRAIN before task execution when the turn approaches any of:
 
-- substantial bounded work where `W` may materially save O context or execution burden;
+- bounded execution that may qualify for Worker offload under BRAIN's current Worker-eligibility / dispatch-worthiness test;
 - delegation / Worker handoff;
 - external mutation;
 - release of a required pending Worker / production Reviewer dependency;
@@ -72,10 +72,33 @@ A short confirmation inherits the immediately preceding proposed action for boun
 Canonical BRAIN semantics: `chat-dev-control-plane-v0/BRAIN-AUTO-PILOT.md`.
 
 ### O DIRECT
-Use O directly when delegation overhead exceeds the likely context/latency benefit or the task requires continuous Orchestrator judgment.
+Use O directly when the task requires continuous Orchestrator trajectory judgment, cannot be bounded before execution, or an otherwise Worker-eligible segment is too small/tightly coupled to repay the current manual handoff + join tax.
 
 ### MANUAL BOUNDED WORKER
-Within BRAIN, select `W` for substantial bounded execution when a Worker can reach a useful checkpoint without continuous O judgment and doing the work directly would materially consume O context.
+
+Worker purpose is not independent judgment. `O` owns trajectory; `W` absorbs bounded execution so O does not carry unnecessary intermediate execution state.
+
+Worker selection uses two gates:
+
+**Gate A — Worker-eligible.** A segment is eligible only when objective/return, scope/authority boundary, stop condition/useful checkpoint are all definable before dispatch, and `W` can reach that checkpoint without `O` steering project trajectory mid-execution.
+
+**Gate B — Dispatch-worthy for the current manual lane.** Eligibility alone is insufficient because production Worker transport requires one human dispatch and one human return/join. Prefer `USE_W` only when the eligible segment can finish with that single dispatch/return and no mid-course human relay, and either:
+
+- it is expected to contain at least **two adaptive execution loops** before the checkpoint; or
+- it is a genuinely broad bounded audit/research/build/migration segment that would otherwise accumulate substantial intermediate repo/source/artifact state in O.
+
+An adaptive execution loop is a bounded cycle in which newly acquired evidence can change the next execution action before verification/checkpoint.
+
+A short tightly coupled single loop stays in O even if mechanically multi-phase. In particular, a brief `test → fix → retest` sequence is not by itself a reason to dispatch W.
+
+Representative routing:
+- one-file edit → test → obvious fix/retest: O;
+- narrow 1–2 source lookup/synthesis: O;
+- broad repo audit producing an evidence packet: W candidate;
+- accepted-state reconstruction → staging/build → validation/package: W candidate;
+- final acceptance, production Reviewer challenge resolution, formal commitment, and canonical promotion: O.
+
+If Worker transport later becomes low-friction or automatic, Gate B should be recalibrated without changing Gate A or O/W authority semantics.
 
 Production Worker transport is human-mediated:
 - O emits a compact routing header plus ready-to-paste bounded Worker prompt;
@@ -188,8 +211,14 @@ Binary caller-surface promotion evidence on 2026-09-03:
 - BRAIN already owns `WAIT` and `USE_W`, so caller-facing `WAIT`/`W_CANDIDATE` were redundant once W-worthiness and pending-dependency release were made explicit BRAIN-entry triggers;
 - fresh production review for this promotion was explicitly `UNAVAILABLE` in the private execution plane; per canonical RUNTIME, O did not auto-retry or switch reviewer substrates and instead ran exactly one local minimum falsification check. The strongest concern—loss of Worker/dependency salience after route collapse—was resolved by preserving both as explicit BRAIN-entry/downstream semantics.
 
-This promotion is reversible and soft. It does **not** establish deterministic enforcement or statistically proven natural long-context recall superiority. Roll back or revise if natural use shows increased missed Worker opportunities, dependency-release errors, or other control regressions.
+Worker-routing refinement evidence on 2026-09-04:
+- a natural GitHub Pages migration trace correctly entered BRAIN and correctly held canonical production after a Reviewer CHALLENGE, but O consumed 8m46s of bounded accepted-state reconstruction/staging/validation/package work that could have returned a useful Worker checkpoint;
+- this exposed under-delegation without showing a caller-route failure;
+- production review of an initial `multi-phase/iterative => default USE_W` proposal returned `CHALLENGE`: short tightly coupled loops could pay more manual handoff/join tax than they save;
+- O resolved that challenge by narrowing the manual-lane rule to the two Gate A/Gate B semantics above and explicitly keeping brief single loops in O.
+
+This architecture remains reversible and soft. It does **not** establish deterministic enforcement or statistically proven natural long-context recall superiority. Roll back or revise if natural use shows increased missed Worker opportunities, excessive user-as-scheduler friction, dependency-release errors, or other control regressions.
 
 ## 9. Next priority
 
-Use the binary caller surface in natural work and watch false-positive/false-negative behavior, especially fresh-epoch bootstrap, proactive Worker discovery, and dependency release. Do not add more caller route classes without a concrete live failure that cannot be handled inside BRAIN.
+Use the binary caller surface and the refined Worker gates in natural work. Watch both sides of manual Worker routing: under-delegation that materially bloats O orchestration state, and over-delegation that makes the user act as scheduler for work O could finish compactly. Do not add more caller route classes without a concrete live failure that cannot be handled inside BRAIN.
