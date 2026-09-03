@@ -1,88 +1,179 @@
-# Chat Dev Thin BRAIN AUTO Pilot
+# Chat Dev BRAIN — Goal-Aligned Control Gateway
 
-Status: TEMPORARY LIVE EVALUATION OVERLAY — ACTIVE / REVERSIBLE
-Start date: 2026-09-03
-Scope: caller-facing cognitive-control entry only.
+Status: ACTIVE DEFAULT — REVERSIBLE
+Promotion date: 2026-09-03
+Scope: caller-facing cognitive/control protocol. Historical filename retained for durable-pointer compatibility.
 
 ## Goal
 
-Test whether one high-salience caller entry reduces natural-use control misses caused by distributed recall obligations.
+BRAIN interrupts control-boundary momentum and makes the caller reason from the user's likely goal rather than merely execute the latest proposed means.
 
-`BRAIN AUTO` is a local cognitive dispatch cue, not another model call, service, MCP, state machine, authority layer, or hard latch. It does not change the semantics of THIN FRAME, Worker routing, Stage-1, Reviewer/Worker join, Mutation Lock, or Reasoning Brake.
+BRAIN is not a second Orchestrator. It is a soft forcing protocol that makes the caller use the context already available to that caller, then applies only the operational controls needed for the pending boundary.
 
-## Caller surface
+It is not a deterministic runtime tool, model call, service, MCP, state machine, sandbox, output gate, or hard latch.
 
-At a **control transition** — when O is about to cross from ordinary reasoning into execution routing/handoff, dependent release, external mutation, or consequential commitment — invoke one local entry:
+## Authority
+
+- `O` remains the sole authority for routing, Worker-result acceptance, formal state transitions, commitments, and final synthesis.
+- `W` remains bounded by the scope and authority supplied by `O`.
+- BRAIN never grants authority, executes bounded work, creates actors, accepts evidence, or owns a final decision.
+- `USE_W` is valid only when caller = `O`.
+- When caller = `W`, any need for wider scope, new authority, or additional Worker execution resolves to `RETURN_TO_O`.
+
+## Invocation boundary
+
+Use BRAIN before:
+
+- delegation / Worker handoff;
+- external mutation;
+- release of a commitment that has a required pending dependency;
+- consequential commitment.
+
+Ordinary direct reasoning that does not approach one of these boundaries stays direct and pays no BRAIN tax.
+
+The caller does not pre-classify downstream control families before entering BRAIN and does not need a magic phrase such as `BRAIN AUTO`.
+
+## Input
+
+BRAIN uses:
+
+- caller role (`O` or `W`);
+- pending action / transition / commitment;
+- caller scope and authority;
+- relevant known dependency state;
+- the conversational/project context already available to the caller.
+
+For `O`, full conversation context is the primary source for goal inference. BRAIN does not replace that context with a smaller reviewer packet.
+
+## 1. Cheap goal/means alignment gate
+
+First ask:
+
+> Is the pending means/action obviously consistent with the user's stated or already-established goal and the current project state?
+
+If yes, do **not** reconstruct latent intent. Continue to the operational control pass.
+
+Run the Goal Pass only when the **means-to-goal alignment itself** is materially mismatched or materially uncertain.
+
+Operational uncertainty alone — for example uncertainty about Worker decomposition, action selection, dependency state, or implementation details while the user's desired outcome is clear — does **not** trigger the Goal Pass. Handle that uncertainty in the relevant operational control instead.
+
+Guardrails:
+
+- Explicit current instructions are strong evidence and can make goal/means alignment clear even when they differ from an earlier preference.
+- Do not invent hidden motives.
+- Do not silently replace an explicit requested method merely because another method appears preferable.
+- A goal hypothesis may justify `REVISE`, comparison, or surfacing a materially better path; it is not new authority.
+
+## 2. Goal Pass — only on goal/means mismatch or uncertainty
+
+Make the caller, especially `O`, use its available context to:
+
+1. infer the outcome the user is most likely trying to achieve;
+2. distinguish that outcome from the latest proposed means;
+3. use conversation history, timing, wording, established preferences, constraints, and current project state as evidence;
+4. compare the pending means against that goal;
+5. run one brief escape pass for a materially better framing or path;
+6. stop when no materially better path appears.
+
+For consequential reasoning, the escape pass is the default spare cycle: one bounded attempt to leave the first framing, not repeated self-reflection.
+
+## 3. Operational control pass
+
+After alignment / Goal Pass, apply only the controls required by the pending boundary.
+
+### Delegation
+
+`O` chooses direct work or `W` under canonical Worker semantics.
+
+Stage-1 remains narrow: only when the proposed Worker delegation/decomposition is both materially consequential if wrong and genuinely uncertain at dispatch time.
+
+### Dependency
+
+A required Reviewer or Worker dependency blocks only the dependent acceptance / final / handoff until terminal, rerouted, cancelled, or otherwise cleared under canonical semantics.
+
+### External mutation
+
+Apply Mutation Lock. Bind mutation effect, target resource type, and target identity/destination before action selection. Do not add a model call merely to approve ordinary mutations.
+
+### Independent review
+
+External Reasoning Brake is not BRAIN's default personality. It is the independent hard-boundary module.
+
+Mandatory independent review applies when the pending commitment has at least one HARD COMMITMENT effect:
+
+A. changes or promotes durable production, canonical architecture, or control semantics;
+B. changes actor authority, safety/privacy/security boundaries, or dependency enforcement;
+C. creates material external impact or commitment whose consequences extend beyond local reasoning/workspace and are not fully neutralized by technical rollback, including public/third-party communication, money, production/user impact, or destructive/large-scale state change;
+D. is otherwise costly or hard to reverse;
+E. retains unresolved evidence conflict or decision-controlling uncertainty after the caller's goal/alternative pass.
+
+Reversible exploration, research acceptance, ordinary prioritization, tentative/no-change recommendations, and local reversible work do not require external review unless they independently meet A-E.
+
+Caller confidence never waives A-E.
+
+## 4. Results
+
+BRAIN returns the minimum action-oriented guidance needed, such as:
+
+- `CONTINUE`
+- `REVISE`
+- `VERIFY`
+- `WAIT`
+- `USE_W` — caller `O` only
+- `RETURN_TO_O` — caller `W`
+- `ESCALATE_REVIEW`
+
+If no BRAIN invocation boundary actually exists, remain `O DIRECT`; do not manufacture a `CONTINUE` ceremony merely to pass through BRAIN.
+
+These are protocol outcomes, not new authorities or runtime-enforced states.
+
+## Runtime shape
 
 ```text
-BRAIN AUTO
+ordinary work
+    ↓
+control boundary?
+    ├─ no → O DIRECT
+    └─ yes
+         ↓
+       BRAIN
+         ↓
+       cheap goal/means alignment gate
+         ├─ clear → operational controls
+         └─ goal/means mismatch or uncertainty
+                ↓
+             Goal Pass by caller
+                ↓
+             operational controls
+                ↓
+             independent review only if HARD A-E
 ```
 
-The caller does not separately recall each downstream control first. BRAIN resolves which existing control family is relevant, if any.
+Underlying Worker authority, Stage-1, dependency join, Mutation Lock, and reviewer execution semantics remain canonical in their existing durable sources.
 
-## Resolution
+## Evidence / interpretation boundary
 
-`BRAIN AUTO` may resolve to one or more of:
+Promotion evidence included:
 
-```text
-NONE
-FRAME / ROUTE
-JOIN / WAIT
-MUTATION BINDING
-DECISION BRAKE
-```
+- prior live failures showing distributed Stage-1 / Reviewer-join recall can fail;
+- three-arm caller-control proxy showing the thin BRAIN entry was viable with low caller surface, but not proving natural-use superiority;
+- goal-first design reviews that rejected mandatory latent-goal re-inference and O-confidence reviewer self-waiver;
+- natural reviewer cases supporting independent review at durable control/authority boundaries;
+- frozen v0/v1 representative traces showing no authority, join, mutation, or hard-review invariant regressions after correcting one real goal-vs-operational uncertainty ambiguity;
+- independent adjudication that the sole v1 exact-action mismatch (`ANSWER_DIRECT` vs `CONTINUE` on a non-boundary trace) had no material semantic consequence;
+- production Sol-low promotion review PASS.
 
-Use the existing canonical semantics underneath:
-
-- `FRAME / ROUTE` → `chat-dev-control-plane-v0/ARCHITECTURE.md` and existing THIN FRAME / Worker routing rules.
-- `JOIN / WAIT` → existing required Reviewer / Worker dependency semantics. A pending required dependency blocks only the dependent acceptance/final/handoff.
-- `MUTATION BINDING` → `chat-dev-control-plane-v0/MUTATION-LOCK.md`; bind intended mutation effect/resource/target before action discovery/selection.
-- `DECISION BRAKE` → existing `reasoning-brake-v0/RUNTIME.md` trigger and runtime semantics.
-- `NONE` → continue ordinary reasoning/action with no added ceremony.
-
-For a proposed Worker handoff, existing Stage-1 semantics remain unchanged: if routing/decomposition is materially consequential if wrong and genuinely uncertain, complete the existing Stage-1 review and O re-decision before handoff.
-
-When multiple existing controls apply, preserve their existing prerequisites and sequencing. BRAIN adds no new priority rule and no new authority.
-
-## Non-scope
-
-This pilot does not:
-- add a model call merely to execute BRAIN;
-- change Worker authority or transport;
-- change Reviewer/Worker join semantics;
-- make Stage-1 universal;
-- expand or weaken Mutation Lock;
-- replace the current Reasoning Brake contract;
-- create an external dependency registry or durable state service;
-- claim deterministic, fail-closed, sandbox, or output-gate enforcement;
-- change the frozen canonical baseline underneath this temporary caller-surface overlay.
-
-## Why live-test this
-
-The distributed caller-control baseline has already produced live Stage-1 and Reviewer-join misses even with the relevant prose loaded. A frozen three-arm isolated proxy later showed the thin BRAIN caller surface at 10/10, internal resolution at 9/9, correct simple/direct bypass, and a smaller caller surface, but could not establish natural-use superiority because the clean proxy ceilinged.
-
-That is enough viability evidence for a reversible live pilot, not a production-reliability claim.
-
-## Natural-use evidence
-
-Observe naturally occurring control transitions only. Do not manufacture cases merely to accumulate a count.
-
-Track decision-relevant signals when they occur:
-- whether BRAIN itself is remembered at the transition;
-- missed or correctly intercepted Stage-1, join, mutation-binding, or decision-brake transitions;
-- wrong downstream control-family resolution;
-- false activation / ceremony on ordinary direct work;
-- whether long-context / rollover conditions degrade recall;
-- any measurable reduction in caller-side rule juggling.
-
-The first 10 natural BRAIN-relevant transitions are an initial checkpoint only, not a statistical reliability claim.
+This supports a reversible production semantic promotion, not a claim of deterministic enforcement or statistically proven natural long-context reliability.
 
 ## Stop / revise rule
 
-Stop or revise if BRAIN is repeatedly skipped, materially increases ceremony/false blocking, or causes wrong control-family routing. Keep it only if the single-entry surface improves practical consistency with negligible tax.
+Revise or roll back if natural use shows that BRAIN:
 
-Hard enforcement still requires a runtime surface that actually owns dispatch/output/action release; this pilot does not provide one.
+- causes repeated latent-goal over-inference on explicit/simple requests;
+- recreates per-turn ceremony;
+- makes operational controls easier to skip;
+- lets `W` gain authority or recursively route Workers;
+- weakens independent review on material hard-boundary commitments;
+- becomes another hidden Orchestrator rather than a forcing protocol.
 
-## Relationship to baseline
-
-`chat-dev-control-plane-v0/ARCHITECTURE.md`, `chat-dev-control-plane-v0/MUTATION-LOCK.md`, `reasoning-brake-v0/STAGE1-PILOT.md`, and `reasoning-brake-v0/RUNTIME.md` remain authoritative for their existing semantics. This file changes only the caller-facing entry used to reach them during the pilot.
+Hard enforcement still requires a runtime surface that actually owns dispatch/output/action release; BRAIN does not provide one.
