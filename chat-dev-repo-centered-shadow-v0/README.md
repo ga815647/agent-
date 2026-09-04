@@ -1,34 +1,65 @@
-# Chat Dev Repo-Centered Control Plane — Shadow v0
+# Chat Dev Repo-Centered Control Plane — Shadow Candidate
 
 Status: SHADOW / NON-AUTHORITATIVE / REVERSIBLE
-Production baseline remains Chat Dev v29 in Notion `Chat Dev｜Current` plus the existing public architecture/contracts.
+Production baseline remains Chat Dev v29.
 
 ## Purpose
 
-Evaluate a repo-centered durable control-plane layout without changing production authority.
+Build the complete repo-centered target state before any production authority cutover.
 
-The shadow separates three previously overloaded entry concepts:
+This package is intentionally usable as both:
 
-1. **Project Instructions bootstrap shim** — the minimal out-of-band rule that tells a fresh Chat where to load current control truth.
-2. **Runtime control entry / manifest** — the model-facing durable entry that selects the current control release and caller route semantics.
-3. **Adoption / initialization entry** — the human-facing guide for bringing a new Project/repo into Chat Dev. This is not runtime bootstrap.
+- a model-facing control-plane candidate; and
+- a human-facing distribution/adoption package.
 
-## Proposed authority split
+Those surfaces share one repository but do not share one entry document.
 
-Public repo owns cross-project Chat Dev control semantics and stable runtime interfaces.
-Notion remains the default home for project-local routing, operational/research state, structured databases, and human-maintained dashboards/indexes.
-Private `ga815647/chatdev-exec` remains reviewer execution/policy/result substrate only.
+## Entry concepts
 
-## Shadow files
+1. **Project Instructions bootstrap shim** — minimal out-of-band fresh-epoch kernel.
+2. **Runtime control entry / manifest** — `BOOTSTRAP.md`, which carries current caller-entry semantics and selects one immutable control release.
+3. **Adoption / initialization entry** — `ADOPT-CHAT-DEV.md`, for humans bringing a new Project/repo into Chat Dev.
 
-- `PROJECT-INSTRUCTIONS-SHIM.md` — candidate minimal fresh-epoch kernel.
-- `BOOTSTRAP.md` — candidate runtime control entry/manifest.
-- `BRAIN.md` — candidate repo-owned stable BRAIN interface.
-- `W.md` — candidate repo-owned stable W interface.
-- `HANDOFF-AUTHORING.md` — candidate repo-owned handoff authoring guide.
-- `ADOPT-CHAT-DEV.md` — human/new-repo adoption and initialization entry.
-- `COLD-START-PROOF.md` — promotion proof matrix and rollback criteria.
+Do not call adoption/bootstrap installation the runtime bootstrap.
 
-## Non-goals
+## Target files
 
-This shadow does not change Project Instructions, Notion Current/BRAIN/W authority, Project Profiles, reviewer policy, production routing, or active control semantics.
+### Runtime / control
+
+- `BOOTSTRAP.md` — current model-facing entry + release selector.
+- `ARCHITECTURE.md` — authority topology and cross-project invariants.
+- `BRAIN.md` — stable BRAIN interface.
+- `W.md` — stable bounded Worker interface.
+- `RELEASE-CONTRACT.md` — coherent immutable-release rules.
+
+### Human / authoring
+
+- `PROJECT-INSTRUCTIONS-SHIM.md` — minimal Project Instructions template.
+- `ADOPT-CHAT-DEV.md` — adoption/initialization guide.
+- `HANDOFF-AUTHORING.md` — rollover/Worker handoff writing guide.
+- `MIGRATION.md` — v29 → repo-centered activation/compatibility plan.
+- `COLD-START-PROOF.md` — deferred promotion smoke/proof checklist, not the main refactor workstream.
+
+## Authority split
+
+Public `ga815647/agent-` candidate owner:
+- global Chat Dev control semantics;
+- stable runtime interfaces;
+- public-safe architecture/contracts/templates.
+
+Private `ga815647/chatdev-exec`:
+- reviewer execution/policy/results only.
+
+Project-local durable sources:
+- Project Profiles;
+- operational/research state;
+- structured human state;
+- product/technical truth in each project's canonical source.
+
+The goal is not to move all Notion content into Git.
+
+## Production isolation
+
+Everything in this directory remains shadow-only. Do not treat these files as current authority while production Projects still bootstrap through Chat Dev v29.
+
+Production activation starts only when a current pointer/authority is changed. That later transition requires a fresh hard-commitment decision/review.
