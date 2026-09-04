@@ -4,52 +4,77 @@ Status: SHADOW / HUMAN-FACING / NON-AUTHORITATIVE
 
 This is the **human/new-repo adoption and initialization entry**. It is not the model runtime bootstrap.
 
-Use this guide when bringing a new ChatGPT Project or repository into Chat Dev.
+Use it when bringing a new ChatGPT Project or repository into Chat Dev.
 
-## 1. Choose the durable split
+## 1. Understand the split
 
-Keep cross-project Chat Dev control semantics in the Chat Dev control-plane repo.
-Keep product/technical canonical truth in the project's own repo or other canonical source.
-Keep project-local routing, operational/research state, structured databases, and human dashboards in the system best suited to them; Notion is appropriate when those are human-maintained and stateful.
+Global Chat Dev control semantics live in the Chat Dev control-plane repo.
+
+Project-local routing/authority overrides, operational/research state and structured human-maintained state stay in the project-local durable source best suited to them.
+
+Product/technical truth stays in the project's own canonical repo/source.
 
 Do not copy global Chat Dev mechanics into project-local documents.
 
-## 2. Install the Project Instructions shim
+## 2. Install the minimal Project Instructions shim
 
-Use the current approved Project Instructions bootstrap shim. Its job is only to make a fresh Chat load the runtime control entry, establish the default O role, and point to the exact project-local profile when one exists.
+Start from `PROJECT-INSTRUCTIONS-SHIM.md`.
 
-Do not place BRAIN internals, Worker mechanics, Reviewer rules, Mutation Lock, or repo implementation details in Project Instructions.
+Set:
 
-## 3. Create or identify the Project Profile
+- `CHAT_DEV_BOOTSTRAP` to the approved stable public repo runtime-entry pointer;
+- `PROJECT_PROFILE` to the exact project-local durable pointer when the Project has one.
 
-A Project Profile should contain only genuinely project-local routing/authority/capability overrides and pointers needed to reach project durable truth.
+Do not paste BRAIN internals, Worker mechanics, Reviewer rules, Mutation Lock, transport history or implementation detail into Project Instructions.
 
-Do not duplicate product facts, current operational checkpoints, research conclusions, or generic Chat Dev control semantics when a canonical pointer is available.
+## 3. Confirm repo access
 
-## 4. Repo integration
+A fresh Chat must be able to read the configured `CHAT_DEV_BOOTSTRAP` path through an actually available repository-reading capability.
 
-A project repo may contain its own `AGENTS.md` or equivalent repository-local execution guidance when useful. That file owns repository-local truth only; it must not fork global Chat Dev control semantics.
+Do not assume generic web/raw GitHub access is universally available merely because the repository is public.
 
-## 5. Cold-start proof
+If repo access is unavailable in the intended environment, adoption is incomplete until an approved bootstrap transport/fallback exists.
 
-Before declaring adoption complete, validate:
+## 4. Create or normalize the Project Profile
 
-fresh Project / fresh Chat
-→ Project Instructions shim
-→ runtime control entry
-→ caller route
-→ relevant Project Profile when applicable
-→ project canonical truth
+A Project Profile should hold only genuinely project-local routing/authority/capability overrides and pointers needed to reach project durable truth.
 
-Also test the BRAIN path and one project-local routing path. Do not infer success from an already-warm Chat.
+Avoid duplicate product facts, operational checkpoints, research conclusions or generic Chat Dev semantics when canonical pointers exist.
 
-## 6. Failure behavior
+## 5. Repo-local execution guidance
 
-If the runtime control entry cannot be loaded, do not reconstruct current Chat Dev control semantics from memory for consequential/external actions. Surface degraded state and use the currently approved fallback policy.
+A project repo may contain `AGENTS.md` or an equivalent file for repository-local execution guidance.
+
+That file owns repository-local truth only. It must not fork global Chat Dev control semantics.
+
+## 6. Release behavior
+
+The stable runtime `BOOTSTRAP.md` selects one exact immutable `CONTROL_RELEASE` commit SHA.
+
+A fresh epoch uses that selected SHA for downstream Chat Dev public control documents. See `RELEASE-CONTRACT.md`.
+
+Humans may use version tags for readability, but the runtime release identity should remain the exact accepted commit SHA unless stronger immutable-tag enforcement is separately proven.
+
+## 7. Lightweight adoption check
+
+Before calling a new adoption complete, perform enough fresh-epoch checking to prove the actual configured chain can start:
+
+Project Instructions shim → repo `BOOTSTRAP.md` → caller route → relevant Project Profile/project truth when applicable.
+
+Also exercise a BRAIN path when practical.
+
+This is a lightweight adoption smoke check, not a requirement to run a heavy standalone canary program during ordinary refactor work.
+
+## 8. Failure behavior
+
+If the runtime entry cannot be loaded, do not reconstruct current Chat Dev control semantics from memory for consequential/external actions.
+
+Surface degraded state and use only an explicitly approved fallback/reroute.
 
 ## Naming rule
 
 Reserve **bootstrap** for runtime entry mechanics:
+
 - Project Instructions bootstrap shim/kernel;
 - runtime bootstrap/control entry.
 
