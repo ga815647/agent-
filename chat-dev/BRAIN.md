@@ -1,6 +1,6 @@
 # Chat Dev BRAIN — Stable Interface
 
-Status: SHADOW CANDIDATE / NON-AUTHORITATIVE
+Authority: this interface is active only when reached through the `CONTROL_RELEASE` selected by the active Chat Dev bootstrap for the current Project/epoch.
 
 `BRAIN` is Chat Dev's soft goal-aligned cognitive/control protocol. It is not a deterministic runtime service, state machine, sandbox, output gate, or hard latch.
 
