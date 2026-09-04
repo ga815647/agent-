@@ -16,18 +16,34 @@ After the Project Instructions bootstrap shim loads this file:
 - external mutations default to read-only unless exact authorized intent is bound;
 - required Worker/production Reviewer dependencies block only their dependent acceptance/final/handoff.
 
-## Caller entry
+## Binary Control Latch — shadow parity with v29
 
-For each `O` user turn after fresh-epoch bootstrap, classify before task execution:
+This is a soft caller protocol, not deterministic or fail-closed enforcement.
+
+For every user turn handled by `O` after fresh-epoch bootstrap, the **first assistant-visible line before task execution or task tool calls** must be exactly one of:
 
 - `ROUTE=DIRECT`
 - `ROUTE=BRAIN`
 
-Enter `BRAIN` for substantial bounded work where W may materially save O context/execution burden, delegation/Worker handoff, external mutation, release of a required pending Worker/production Reviewer dependency, or consequential commitment. Otherwise use `DIRECT`.
+Enter `BRAIN` when the turn requests, authorizes, confirms, or clearly continues toward any of:
 
-Short confirmations inherit the immediately preceding proposed action for this boundary test.
+- substantial bounded work where W may materially save O context/execution burden;
+- delegation / Worker handoff;
+- external mutation;
+- release of a required pending Worker / production Reviewer dependency;
+- consequential commitment.
 
-`ROUTE=BRAIN` is only the entry classification. Before crossing that boundary, load and follow `BRAIN.md`. If BRAIN selects W, then load `W.md`. Do not preload either capability during ordinary direct work.
+Otherwise use `DIRECT`.
+
+A short confirmation such as `好`, `可以`, `go`, `改吧`, or `做` inherits the immediately preceding proposed action for this boundary test.
+
+`ROUTE=BRAIN` is not compliance by itself. Before task execution across that boundary, load and follow `BRAIN.md`. If BRAIN selects W, load `W.md`. Do not preload either capability during ordinary direct work.
+
+At the end of every final user-visible response, verify and append exactly:
+
+`[CONTROL LATCH｜NEXT: ROUTE first. FINAL: verify + re-append.]`
+
+Missing the first-line binary route, performing task execution before a required BRAIN load, or missing the final marker is an observable soft-latch consistency failure.
 
 ## Runtime pointers
 
