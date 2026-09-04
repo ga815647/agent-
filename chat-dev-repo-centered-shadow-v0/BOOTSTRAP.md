@@ -1,22 +1,29 @@
-# Chat Dev Runtime Control Entry — Shadow v0
+# Chat Dev Runtime Control Entry — Shadow Candidate
 
 Status: SHADOW / NON-AUTHORITATIVE / REVERSIBLE
-`CHAT_DEV_SHADOW_VERSION=repo-centered-v0`
-`PRODUCTION_BASELINE=Chat Dev v29`
 
-This file is the candidate **runtime control entry / manifest**. It is model-facing durable control truth, not the human adoption guide and not the out-of-band Project Instructions bootstrap shim.
+`CHAT_DEV_CANDIDATE_VERSION=30`
+`PRODUCTION_BASELINE=29`
+`CONTROL_RELEASE=UNSET_SHADOW`
+
+This is the candidate **model runtime control entry / manifest**. It is not the Project Instructions kernel and not the human adoption guide.
+
+At production release construction, `CONTROL_RELEASE` must be replaced by one exact 40-character commit SHA according to `RELEASE-CONTRACT.md`.
 
 ## Fresh-epoch entry
 
 After the Project Instructions bootstrap shim loads this file:
 
-- durable truth overrides chat memory and old prompts;
+- durable bootstrap truth overrides chat memory and old prompts;
 - default actor is `O` unless explicitly assigned another role;
-- `O` owns Worker/Reviewer evidence acceptance, formal state transitions, commitments, and final synthesis;
-- external mutations default to read-only unless exact authorized intent is bound;
+- `O` alone owns Worker/Reviewer evidence acceptance, formal state transitions, commitments and final synthesis;
+- BRAIN and W are lazy capabilities; do not preload them;
+- external mutations default to read-only until exact authorized effect/target binding is satisfied;
 - required Worker/production Reviewer dependencies block only their dependent acceptance/final/handoff.
 
-## Binary Control Latch — shadow parity with v29
+If `CONTROL_RELEASE` is not a valid approved immutable release SHA, this shadow entry is not production-usable.
+
+## Binary caller route
 
 This is a soft caller protocol, not deterministic or fail-closed enforcement.
 
@@ -25,7 +32,7 @@ For every user turn handled by `O` after fresh-epoch bootstrap, the **first assi
 - `ROUTE=DIRECT`
 - `ROUTE=BRAIN`
 
-Enter `BRAIN` when the turn requests, authorizes, confirms, or clearly continues toward any of:
+Use `ROUTE=BRAIN` before task execution when the turn requests, authorizes, confirms, or clearly continues toward any of:
 
 - substantial bounded work where W may materially save O context/execution burden;
 - delegation / Worker handoff;
@@ -33,31 +40,45 @@ Enter `BRAIN` when the turn requests, authorizes, confirms, or clearly continues
 - release of a required pending Worker / production Reviewer dependency;
 - consequential commitment.
 
-Otherwise use `DIRECT`.
+Otherwise use `ROUTE=DIRECT`.
 
-A short confirmation such as `好`, `可以`, `go`, `改吧`, or `做` inherits the immediately preceding proposed action for this boundary test.
+A short confirmation such as `好`, `可以`, `go`, `改吧`, or `做` inherits the immediately preceding proposed action for boundary detection.
 
-`ROUTE=BRAIN` is not compliance by itself. Before task execution across that boundary, load and follow `BRAIN.md`. If BRAIN selects W, load `W.md`. Do not preload either capability during ordinary direct work.
+`ROUTE=BRAIN` is not compliance by itself. Before task execution across that boundary, load `BRAIN.md` from `CONTROL_RELEASE` and follow it. If BRAIN selects W, load `W.md` from the same `CONTROL_RELEASE`.
+
+## Release-consistent pointers
+
+Once this entry selects a valid `CONTROL_RELEASE`, all required Chat Dev public repo reads for the current epoch use that exact SHA:
+
+- `chat-dev-repo-centered-shadow-v0/ARCHITECTURE.md`
+- `chat-dev-repo-centered-shadow-v0/BRAIN.md`
+- `chat-dev-repo-centered-shadow-v0/W.md`
+- `chat-dev-control-plane-v0/MUTATION-LOCK.md`
+- `reasoning-brake-v0/RUNTIME.md`
+- `reasoning-brake-v0/STAGE1-PILOT.md` when Stage-1 is actually needed.
+
+Do not independently re-resolve those files from mutable `main` during the same epoch.
+
+## Project-local route
+
+Load the relevant Project Profile/project-local durable source only when the task requires it. Project-local state is not copied into this global runtime entry.
+
+If a Project Instructions shim supplies `PROJECT_PROFILE=<exact pointer>`, use that pointer as the project-local entry unless current durable truth explicitly supersedes it.
+
+## Degraded bootstrap
+
+If this runtime entry cannot be loaded, or a required control document at `CONTROL_RELEASE` cannot be loaded, do not reconstruct current Chat Dev control semantics from memory for consequential/external actions.
+
+Harmless ordinary conversation may continue when it does not depend on current Chat Dev control truth. Do not commit control-plane changes, external mutations, dependency releases, or other consequential actions until the approved path is available or the user explicitly reroutes under an approved fallback.
+
+## Final latch marker
 
 At the end of every final user-visible response, verify and append exactly:
 
 `[CONTROL LATCH｜NEXT: ROUTE first. FINAL: verify + re-append.]`
 
-Missing the first-line binary route, performing task execution before a required BRAIN load, or missing the final marker is an observable soft-latch consistency failure.
-
-## Runtime pointers
-
-- Stable BRAIN interface: `BRAIN.md`
-- Stable Worker interface: `W.md`
-- Existing detailed architecture authority during shadow evaluation: `../chat-dev-control-plane-v0/ARCHITECTURE.md`
-- Existing detailed BRAIN semantics during shadow evaluation: `../chat-dev-control-plane-v0/BRAIN-AUTO-PILOT.md`
-- Mutation Lock: `../chat-dev-control-plane-v0/MUTATION-LOCK.md`
-- Reasoning Brake runtime: `../reasoning-brake-v0/RUNTIME.md`
-
-## Project-local routing
-
-After global control entry, load only the relevant Project Profile/project-local durable source when the task requires it. Project-specific operational/research state is not pulled into this repo-centered global control entry.
+Missing the first-line binary route, executing before a required BRAIN load, or missing the final marker is an observable soft-latch consistency failure.
 
 ## Shadow boundary
 
-This file does not supersede Notion `Chat Dev｜Current`. Promotion requires semantic parity plus cold-start proof. Until then, production Projects continue to bootstrap through v29 Current.
+This file does not supersede production v29. Production activation is a separate hard-commitment transition.
