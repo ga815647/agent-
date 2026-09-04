@@ -69,6 +69,21 @@ These are semantic requirements, not mandatory headings.
 
 Do not reteach generic O/W/BRAIN/Reviewer/Mutation Lock behavior or protocol-defined schemas when exact durable pointers are available.
 
+### Source-loading failure clauses
+
+When a Worker must read exact authoritative pins, write failure rules around **authority/provenance failure**, not around one connector call succeeding perfectly.
+
+Good default:
+
+- `WRONG_VERSION / NOT_FOUND / authority mismatch / exact body still unrecoverable after bounded same-source retrieval => BLOCKED`;
+- `TRUNCATED / partial first fetch => continue with bounded reads from the same exact source/version when supported; BLOCKED only if the required authoritative body cannot be recovered`.
+
+Do not instruct W to substitute another source, version, summary, or memory reconstruction.
+
+Avoid generic clauses such as `TRUNCATED => BLOCKED` unless single-call completeness is itself a substantive requirement of the active protocol. Transport behavior should not be mistaken for evidence integrity.
+
+If earlier bootstrap/read steps were already completed correctly, a narrow recovery run should resume from the missing exact source rather than force unnecessary re-bootstrap, unless freshness or authority state changed.
+
 Minimal shape when useful:
 
 ```text
@@ -108,5 +123,6 @@ For each line ask:
 - Could removing it materially change execution/continuation correctness?
 - Could it become a stale second copy?
 - Does it protect a real boundary or merely narrow judgment?
+- Does a failure clause protect authority/evidence integrity, or merely mirror a transient connector limitation?
 
 When in doubt, omit and point to canonical truth.
