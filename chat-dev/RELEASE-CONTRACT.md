@@ -1,6 +1,6 @@
 # Chat Dev Control Release Contract
 
-Status: SHADOW CANDIDATE / NON-AUTHORITATIVE
+Role: defines coherent release selection. It applies whenever a Project uses repo-centered Chat Dev bootstrap.
 
 ## Goal
 
@@ -34,9 +34,9 @@ Build a production release in two stages:
 1. Create/merge the complete candidate control snapshot and obtain its immutable commit SHA.
 2. Update the stable `chat-dev/BOOTSTRAP.md` pointer to select that SHA.
 
-This avoids self-referential commit construction and makes the bootstrap-selector update the explicit activation event.
+This avoids self-referential commit construction and makes the bootstrap-selector update the explicit release-selector event.
 
-That activation update is a durable production control change and requires the normal BRAIN / hard-commitment review path.
+Changing a selector used by active Projects is a durable production control change and requires the normal BRAIN / hard-commitment review path.
 
 ## Epoch consistency
 
@@ -52,6 +52,6 @@ Project operational state must not need reverse migration because it stays in pr
 
 ## Stable-pointer protection
 
-The stable bootstrap pointer has high blast radius. Before production activation, use the strongest practical repo protection available for the selected branch/path and preserve reviewable Git history.
+The stable bootstrap pointer has high blast radius. Use the strongest practical repo protection available for the selected branch/path and preserve reviewable Git history.
 
 Do not claim that ordinary mutable Git branches provide deterministic or fail-closed enforcement.
