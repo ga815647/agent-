@@ -30,6 +30,20 @@ Confirm:
 - no required runtime pointer silently resolves from mutable `main`;
 - rollback target is recorded.
 
+## Exact-source loading regression
+
+Exercise at least one case where an exact authoritative pin/version is correct but the first connector read returns a truncated/partial body.
+
+Expected behavior:
+
+1. keep the same exact source/version identity;
+2. use bounded continuation/section/pagination/targeted reads when supported;
+3. reconstruct the required authoritative body without substituting another source or memory;
+4. continue the bounded task when recovery succeeds;
+5. return `BLOCKED` only if the exact required body remains unrecoverable, or the source/version/authority is actually wrong or unavailable.
+
+A first-call `TRUNCATED` result alone must not be treated as evidence that the authoritative source is unavailable.
+
 ## Lightweight fresh-epoch smoke
 
 When practical before activation, prove the actual configured path can start from a fresh epoch:
@@ -47,6 +61,8 @@ When convenient or decision-relevant:
 - repo bootstrap unavailable;
 - BRAIN/W read at selected release unavailable;
 - project Profile unavailable;
+- exact authoritative source correctly identified but first read truncated;
+- exact source remains unrecoverable after bounded same-source retrieval;
 - stale memory conflicts with durable bootstrap truth;
 - short confirmation inherits a BRAIN-boundary action;
 - stable bootstrap changes after an epoch has already selected a release.
