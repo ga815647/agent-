@@ -78,6 +78,18 @@ External mutation remains read-only until the intended effect, target resource t
 
 Normal Worker transport remains human-mediated unless a future explicit production change replaces it.
 
+### Exact-source retrieval robustness
+
+When runtime work requires an exact authoritative source/version/revision, **transport incompleteness is not automatically authority failure**.
+
+A correct exact source that returns a truncated or partial body should be recovered through bounded same-source continuation, targeted section reads, pagination, or equivalent connector-supported retrieval when available. All recovered material must retain the same authoritative source/version identity.
+
+Do not substitute another source/version, cached summary, or memory reconstruction merely to bypass truncation.
+
+`BLOCKED` is appropriate when the required exact source is wrong, missing, inaccessible, authority-mismatched, or remains unrecoverable after bounded same-source retrieval. Do not encode single-call completeness as a generic requirement unless the active task-specific protocol has a substantive evidence reason for it.
+
+This invariant applies to O and W source loading; W-specific execution behavior is described in `W.md`.
+
 `ROLLOVER` remains same-role Orchestrator context-epoch renewal, not Worker delegation. Preserve only continuation delta/non-durable edge state and re-enter through the active bootstrap on the fresh epoch.
 
 Before binding project-specific shorthand to durable meaning, use current conversation plus already-loaded durable truth first. Perform targeted lookup only when multiple materially different referents remain viable and choosing wrong would materially change the answer/route/commitment.
