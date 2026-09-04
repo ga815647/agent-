@@ -1,6 +1,6 @@
 # Chat Dev Repo-Centered Architecture
 
-Status: SHADOW CANDIDATE / NON-AUTHORITATIVE / REVERSIBLE
+Authority: this architecture is current for a Project only when that Project's active bootstrap selects a `CONTROL_RELEASE` containing this file. Repository presence alone does not activate it.
 
 ## 1. Goal
 
@@ -70,28 +70,23 @@ Visible caller route remains binary:
 
 BRAIN owns downstream Worker selection, dependency waiting, Mutation Lock application and hard-commitment review escalation.
 
-A required Worker/production Reviewer dependency blocks only its dependent acceptance/final/handoff until terminal, rerouted or cancelled. Worker/Reviewer return does not itself create a new special caller route; the next O turn uses the normal binary latch and re-enters BRAIN only if that next action again meets a BRAIN boundary.
+A short confirmation such as `好`, `可以`, `go`, `改吧`, or `做` inherits the immediately preceding proposed action for caller-boundary detection.
+
+A required Worker or production Reviewer dependency blocks only its dependent acceptance/final/handoff until terminal, explicitly rerouted/cancelled, or otherwise cleared under the active contract.
+
+External mutation remains read-only until the intended effect, target resource type and exact target identity/destination are bound under Mutation Lock.
 
 Normal Worker transport remains human-mediated unless a future explicit production change replaces it.
 
-## 5. Context lifecycle / rollover
+`ROLLOVER` remains same-role Orchestrator context-epoch renewal, not Worker delegation. Preserve only continuation delta/non-durable edge state and re-enter through the active bootstrap on the fresh epoch.
 
-`ROLLOVER` means same-role Orchestrator context-epoch renewal. It is not Worker delegation or a role handoff.
+Before binding project-specific shorthand to durable meaning, use current conversation plus already-loaded durable truth first. Perform targeted lookup only when multiple materially different referents remain viable and choosing wrong would materially change the answer/route/commitment.
 
-A rollover carries only non-durable edge state needed to continue correctly, then starts a fresh O epoch. The fresh epoch must bootstrap through Project Instructions → `BOOTSTRAP.md` before normal response/task execution and then rehydrate only the relevant Project Profile/project durable truth needed for the workstream.
+At the end of every final user-visible response under the active binary latch, append the exact active control-latch marker supplied by `BOOTSTRAP.md`.
 
-Do not duplicate stable accepted truth into rollover artifacts when exact durable pointers are sufficient.
+This is a soft protocol; do not claim deterministic or fail-closed enforcement.
 
-## 6. Shared cross-project defaults
-
-- Durable truth overrides chat memory/old prompts.
-- Reuse stable resolved truth within one context; refresh before consequential transitions or when evidence conflicts.
-- Resolve project-specific shorthand from the current conversation plus already-loaded durable truth first. Perform one targeted durable lookup only when materially different referents remain viable and choosing wrong would materially change the answer/route/commitment.
-- Use the shortest unambiguous machine-facing artifact.
-- Clean transient CI/Actions artifacts after they lose unique operational or durable value.
-- Product, technical, validation and implementation truth belong in their project repo or other canonical durable source rather than being recopied into global Chat Dev control docs.
-
-## 7. Release coherence
+## 5. Release coherence
 
 `BOOTSTRAP.md` is read from the configured stable bootstrap pointer. It selects exactly one immutable `CONTROL_RELEASE` commit SHA.
 
@@ -101,29 +96,29 @@ The stable bootstrap pointer is the intentionally mutable current-entry surface.
 
 See `RELEASE-CONTRACT.md`.
 
-## 8. Compatibility with existing public docs
+## 6. Compatibility with existing public docs
 
-During shadow evaluation, current production files remain authoritative.
+Before repo-centered activation, the existing production files remain authoritative for Projects still bootstrapped through v29 Notion Current.
 
-Candidate promotion policy:
+After activation, compatibility policy is:
 
-- `chat-dev/` becomes the current control entry/interface layer;
+- `chat-dev/` is the current control entry/interface layer for migrated Projects;
 - detailed module contracts that remain useful, including Mutation Lock and Reasoning Brake, stay in their existing module directories and are pinned by `CONTROL_RELEASE`;
-- `chat-dev-control-plane-v0/ARCHITECTURE.md` stops being a competing current architecture authority and becomes a compatibility pointer or historical baseline;
+- `chat-dev-control-plane-v0/ARCHITECTURE.md` must not remain a competing current architecture authority; after the rollback window it becomes a compatibility pointer or historical baseline;
 - `BRAIN-AUTO-PILOT.md` may remain the detailed BRAIN implementation contract while `chat-dev/BRAIN.md` is the stable interface;
 - no old production file is deleted merely for cosmetic cleanup.
 
-## 9. Notion after activation
+See `COMPATIBILITY.md`.
+
+## 7. Notion after activation
 
 The goal is not to replace Notion globally.
 
-`Chat Dev Durable` may remain a human dashboard/index and private Project registry. `Chat Dev｜Current`, `Chat Dev｜BRAIN`, `Chat Dev｜W` and the Handoff guide may later become pointer-only compatibility pages or be archived after the rollback window.
+`Chat Dev Durable` remains useful as a human dashboard/index. `Chat Dev｜Current`, `Chat Dev｜BRAIN`, `Chat Dev｜W` and the Handoff guide remain intact while any Project still depends on v29 or while they are the active rollback source. Only after the rollback window closes should they become pointer-only compatibility pages or history/archive.
 
 Project Profiles remain private/project-local by default.
 
-A Project's exact Profile pointer belongs in that Project's local Project Instructions shim; the public global repo does not need to expose a private Project inventory.
-
-## 10. Degraded bootstrap behavior
+## 8. Degraded bootstrap behavior
 
 If the repo runtime entry cannot be loaded, do not invent current Chat Dev control semantics from memory for consequential/external actions.
 
@@ -131,10 +126,12 @@ Harmless ordinary conversation may continue only when it does not require curren
 
 This is a behavioral rule, not deterministic fail-closed enforcement.
 
-## 11. Production boundary
+## 9. Activation boundary
 
-Shadow refactor, parity work and documentation cleanup are reversible local work.
+Publishing these files to the repository does not by itself change a Project's runtime authority.
 
-Production activation begins only when a current authority/pointer changes: repo current entry, Project Instructions, Notion Current/BRAIN/W authority, or equivalent control semantics.
+A Project enters repo-centered control when its active Project Instructions bootstrap loads repo `chat-dev/BOOTSTRAP.md`, which then selects an immutable `CONTROL_RELEASE`.
 
-That boundary requires a fresh hard-commitment decision/review.
+Changing the stable bootstrap selector, changing a Project's bootstrap kernel, demoting an existing production authority, or otherwise promoting canonical/control semantics is a hard-effect transition and uses the normal BRAIN / independent-review path.
+
+See `ACTIVATION.md` and `MIGRATION.md`.
