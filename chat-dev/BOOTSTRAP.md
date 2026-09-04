@@ -1,14 +1,15 @@
 # Chat Dev Runtime Control Entry
 
-Status: SHADOW CANDIDATE / NON-AUTHORITATIVE / REVERSIBLE
+Role: stable model-facing runtime entry and immutable release selector.
 
-`CHAT_DEV_CANDIDATE_VERSION=30`
-`PRODUCTION_BASELINE=29`
-`CONTROL_RELEASE=8785f56b0ebf9b67fa29c0cf06c5da80ef56ccc4`
+Authority: this entry is active for a Project only when that Project's active Project Instructions bootstrap points to this stable repo path.
 
-This is the candidate **model runtime control entry / manifest**. It is not the Project Instructions kernel and not the human adoption guide.
+`CHAT_DEV_VERSION=30`
+`CONTROL_RELEASE=984a1c0f0bfcbe7459730dc6cae0bccac8dcef3e`
 
-The selected `CONTROL_RELEASE` is an immutable shadow candidate snapshot. It is not production authority.
+This is the **model runtime control entry / manifest**. It is not the Project Instructions kernel and not the human adoption guide.
+
+The selected `CONTROL_RELEASE` is the immutable control snapshot for the current Chat Dev epoch.
 
 ## Fresh-epoch entry
 
@@ -77,6 +78,6 @@ At the end of every final user-visible response, verify and append exactly:
 
 Missing the first-line binary route, executing before a required BRAIN load, or missing the final marker is an observable soft-latch consistency failure.
 
-## Shadow boundary
+## Activation boundary
 
-This file does not supersede production v29. Production activation is a separate hard-commitment transition.
+Repository presence alone does not activate this entry for a Project. Activation occurs when that Project's Project Instructions bootstrap is changed to load this stable path. Such a production authority transition uses the normal hard-commitment review path.
