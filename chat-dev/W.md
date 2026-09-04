@@ -1,6 +1,6 @@
 # Chat Dev W — Stable Interface
 
-Status: SHADOW CANDIDATE / NON-AUTHORITATIVE
+Authority: this interface is active only when reached through the `CONTROL_RELEASE` selected by the active Chat Dev bootstrap for the current Project/epoch.
 
 `W` is Chat Dev's bounded execution capability. Use only when O/BRAIN actually selects bounded Worker execution; do not preload during ordinary work.
 
