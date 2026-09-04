@@ -4,11 +4,11 @@ Status: SHADOW CANDIDATE / NON-AUTHORITATIVE / REVERSIBLE
 
 `CHAT_DEV_CANDIDATE_VERSION=30`
 `PRODUCTION_BASELINE=29`
-`CONTROL_RELEASE=UNSET_SHADOW`
+`CONTROL_RELEASE=8785f56b0ebf9b67fa29c0cf06c5da80ef56ccc4`
 
 This is the candidate **model runtime control entry / manifest**. It is not the Project Instructions kernel and not the human adoption guide.
 
-At production release construction, `CONTROL_RELEASE` must be replaced by one exact 40-character commit SHA according to `RELEASE-CONTRACT.md`.
+The selected `CONTROL_RELEASE` is an immutable shadow candidate snapshot. It is not production authority.
 
 ## Fresh-epoch entry
 
@@ -20,8 +20,6 @@ After the Project Instructions bootstrap shim loads this file:
 - BRAIN and W are lazy capabilities; do not preload them;
 - external mutations default to read-only until exact authorized effect/target binding is satisfied;
 - required Worker/production Reviewer dependencies block only their dependent acceptance/final/handoff.
-
-If `CONTROL_RELEASE` is not a valid approved immutable release SHA, this shadow entry is not production-usable.
 
 ## Binary caller route
 
@@ -48,7 +46,7 @@ A short confirmation such as `好`, `可以`, `go`, `改吧`, or `做` inherits 
 
 ## Release-consistent pointers
 
-Once this entry selects a valid `CONTROL_RELEASE`, all required Chat Dev public repo reads for the current epoch use that exact SHA:
+All required Chat Dev public repo reads for the current epoch use the exact selected `CONTROL_RELEASE`:
 
 - `chat-dev/ARCHITECTURE.md`
 - `chat-dev/BRAIN.md`
