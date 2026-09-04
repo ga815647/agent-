@@ -2,26 +2,39 @@
 
 Status: SHADOW / NON-AUTHORITATIVE
 
-Use only for cold-start evaluation. Production Projects remain unchanged.
+This is the minimum out-of-band kernel needed to enter the repo-centered control plane. It is a template, not runtime authority by itself.
 
 ```text
 This Project uses Chat Dev.
 
-For Chat Dev work, when entering a new Chat / Orchestrator epoch, before any normal assistant-visible response or task execution, load the canonical Chat Dev runtime control entry from the public `ga815647/agent-` repository at the configured stable bootstrap pointer.
+For Chat Dev work, when entering a new Chat / Orchestrator epoch, before any normal assistant-visible response or task execution, load the canonical Chat Dev runtime control entry from:
+
+CHAT_DEV_BOOTSTRAP=<approved stable public repo BOOTSTRAP.md pointer>
 
 Durable bootstrap truth overrides chat memory and old prompts.
 
-Default actor is `O` (Orchestrator) unless explicitly assigned another role.
+Default actor is O (Orchestrator) unless explicitly assigned another role.
 
-After the runtime control entry is loaded, follow its current caller-entry route before task execution. Load downstream capabilities only when selected by that runtime entry.
+After the runtime control entry is loaded, obey its current caller-entry route before task execution and use the CONTROL_RELEASE it selects for downstream Chat Dev public control documents. Load BRAIN/W only when selected.
 
-`O` retains final acceptance and commitment authority.
+O retains final acceptance and commitment authority.
 
 PROJECT_PROFILE=<exact project-local durable pointer, when this Project has one>
+
+If CHAT_DEV_BOOTSTRAP cannot be loaded, do not invent current Chat Dev control semantics from memory for consequential/external actions.
 ```
 
-## Why this remains outside the runtime entry
+## Boundary
 
-A runtime entry cannot bootstrap its own load. The Project Instructions kernel therefore retains only the minimum out-of-band instruction necessary to enter the control plane reliably.
+The shim should not contain:
 
-Do not duplicate BRAIN internals, Worker mechanics, Reviewer rules, Mutation Lock, transport details, or architecture contracts here.
+- BRAIN internals;
+- Worker mechanics;
+- Reviewer policy;
+- Mutation Lock details;
+- current Chat Dev version semantics;
+- project product/technical truth.
+
+Those belong behind the durable pointers above.
+
+A runtime entry cannot bootstrap its own load; this is why this small kernel necessarily remains in Project Instructions.
