@@ -20,6 +20,7 @@ This directory is the proposed canonical public control-plane surface for repo-c
 - `HANDOFF-AUTHORING.md` — rollover/Worker handoff authoring guide.
 - `MIGRATION.md` — activation, compatibility and rollback plan.
 - `VALIDATION.md` — lightweight/deferred promotion validation checklist.
+- `PARITY-AUDIT.md` — current v29 → repo-centered static responsibility audit.
 
 ## Core split
 
