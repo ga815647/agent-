@@ -1,10 +1,10 @@
-# Adopt Chat Dev
+# Adopt Chat Dev — Manual Reference
 
-Status: SHADOW CANDIDATE / HUMAN-FACING / NON-AUTHORITATIVE
+Status: HUMAN-FACING REFERENCE / NON-AUTHORITATIVE / NOT A TURNKEY INSTALLER
 
-This is the **human/new-repo adoption and initialization entry**. It is not the model runtime bootstrap.
+This file documents the **manual mechanics** of wiring a ChatGPT Project or repository into Chat Dev. It is not the model runtime bootstrap, a supported onboarding product, or a one-click installer.
 
-Use it when bringing a new ChatGPT Project or repository into Chat Dev.
+Use it only as a reference when deliberately adapting Chat Dev for a Project. For a public overview of what Chat Dev is and how its public/private surfaces are divided, start from the repository `README.md`.
 
 ## 1. Understand the split
 
@@ -57,7 +57,7 @@ Humans may use version tags for readability, but runtime release identity remain
 
 ## 7. Lightweight adoption check
 
-Before calling a new adoption complete, perform enough fresh-epoch checking to prove the actual configured chain can start:
+Before calling a manual adoption complete, perform enough fresh-epoch checking to prove the actual configured chain can start:
 
 Project Instructions shim → repo `BOOTSTRAP.md` → caller route → relevant Project Profile/project truth when applicable.
 
@@ -78,4 +78,4 @@ Reserve **bootstrap** for runtime entry mechanics:
 - Project Instructions bootstrap shim/kernel;
 - runtime bootstrap/control entry.
 
-Call this human-facing process **adoption** or **initialization**, not bootstrap.
+Call this human-facing manual process **adoption** or **initialization**, not bootstrap.
