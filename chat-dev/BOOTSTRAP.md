@@ -22,20 +22,24 @@ After the Project Instructions bootstrap shim loads this file:
 - external mutations default to read-only until exact authorized effect/target binding is satisfied;
 - required Worker/production Reviewer dependencies block only their dependent acceptance/final/handoff.
 
-## Temporary Thin Micro live canary
+## Temporary Thin Micro + Route ownership live canary
 
 Status: ACTIVE / REVERSIBLE through `2026-09-13T23:59:59+08:00`. After that timestamp this overlay is inactive even if this text has not yet been removed; the unchanged v30 caller route remains the baseline.
 
-Before selecting the existing Binary caller route on every `O` user turn, run one cheap local state-grounding check using only the latest user turn and immediately relevant visible conversation trace already available to `O`.
+On every `O` user turn, before task execution or task tool calls, run one cheap local Thin Micro entry using only the latest user turn and immediately relevant visible conversation trace already available to `O`.
 
-The check may only:
+The Thin Micro first runs a state-grounding check that may only:
 
 - preserve the latest explicit instruction, cancellation, authorization, task-mode change, and referent;
 - treat short confirmations as referring to the immediately preceding proposed action when the visible trace supports that reading;
 - when the user claims that `O` just did or did not do something, verify that claim against the visible trace when it is directly resolvable before accepting or rejecting the framing;
 - notice an obvious state mismatch that would otherwise cause `O` to answer the wrong current turn.
 
-If the trace does not resolve the point, do not invent certainty. If no mismatch is found, this check is a no-op.
+If the trace does not resolve the point, do not invent certainty. If no mismatch is found, the grounding check is a no-op.
+
+After grounding, the same Thin Micro entry is the **primary caller-route selector**. It applies exactly the existing Binary caller route rules below and produces exactly one route result: `DIRECT` or `BRAIN`. `O` consumes that result and does not routinely re-run the same route classification.
+
+An exception-only `O` sanity check is allowed only when the Thin Micro route result is missing/malformed or directly contradicts explicit visible boundary evidence under the unchanged Binary caller route rules. In that case `O` corrects to the existing v30 rule before task execution and treats the event as a concrete canary routing error rather than establishing a second normal routing pass.
 
 This overlay must not:
 
@@ -43,22 +47,23 @@ This overlay must not:
 - infer latent motives or reconstruct hidden goals;
 - generate alternatives, reflexive counterarguments, clarifications, blockers, or approval gates;
 - call a model, tool, Worker, Reviewer, or external service;
-- emit any visible micro/debug output or add ceremony.
+- emit any visible micro/debug output or add ceremony;
+- let `O` independently re-classify every turn after a valid Thin Micro route result.
 
-After the check, continue immediately to the exact existing Binary caller route below. BRAIN, Worker, Reviewer, Mutation Lock, dependency, and authority semantics are unchanged.
+BRAIN, Worker, Reviewer, Mutation Lock, dependency, and authority semantics are unchanged.
 
 Live-canary acceptance is primarily natural-use evidence. Keep the overlay only if the user experiences fewer low-level misunderstanding/state/referent/control-recall errors without meaningful new ceremony, contrarianism, false blockers, or route over-triggering. Roll back the overlay immediately if the user explicitly reports one of those regressions as attributable to the micro, or if `O` observes a concrete micro-induced state/route error.
 
 ## Binary caller route
 
-This is a soft caller protocol, not deterministic or fail-closed enforcement.
+This remains a soft caller protocol, not deterministic or fail-closed enforcement. During the active canary, the Thin Micro entry above owns the primary selection responsibility for this route.
 
-For every user turn handled by `O` after fresh-epoch bootstrap, the **first assistant-visible line before task execution or task tool calls** must be exactly one of:
+For every user turn handled by `O` after fresh-epoch bootstrap, the **first assistant-visible line before task execution or task tool calls** must reflect the Thin Micro route result and be exactly one of:
 
 - `ROUTE=DIRECT`
 - `ROUTE=BRAIN`
 
-Use `ROUTE=BRAIN` before task execution when the turn requests, authorizes, confirms, or clearly continues toward any of:
+The Thin Micro selects `ROUTE=BRAIN` when the turn requests, authorizes, confirms, or clearly continues toward any of:
 
 - substantial bounded work where W may materially save O context/execution burden;
 - delegation / Worker handoff;
@@ -66,7 +71,7 @@ Use `ROUTE=BRAIN` before task execution when the turn requests, authorizes, conf
 - release of a required pending Worker / production Reviewer dependency;
 - consequential commitment.
 
-Otherwise use `ROUTE=DIRECT`.
+Otherwise it selects `ROUTE=DIRECT`.
 
 A short confirmation such as `好`, `可以`, `go`, `改吧`, or `做` inherits the immediately preceding proposed action for boundary detection.
 
@@ -83,7 +88,7 @@ All required Chat Dev public repo reads for the current epoch use the exact sele
 - `reasoning-brake-v0/RUNTIME.md`
 - `reasoning-brake-v0/STAGE1-PILOT.md` when Stage-1 is actually needed.
 
-Do not independently re-resolve those files from mutable `main` during the same epoch.
+Do not independently re-resolve those files from a different mutable revision during the same epoch.
 
 ## Project-local route
 
