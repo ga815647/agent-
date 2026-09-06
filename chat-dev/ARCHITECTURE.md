@@ -15,7 +15,7 @@ repo BOOTSTRAP.md at stable bootstrap pointer
         ↓
 CONTROL_RELEASE=<immutable commit SHA>
         ↓
-BRAIN.md / W.md / architecture + public control modules at same release
+CALLER.md + BRAIN.md / W.md / architecture + public control modules at same release
         ↓
 relevant Project Profile only when needed
         ↓
@@ -27,8 +27,9 @@ The Project Instructions shim exists because the runtime entry cannot bootstrap 
 ## 2. Distinct entry concepts
 
 1. **Bootstrap shim/kernel** — minimal out-of-band Project Instructions rule.
-2. **Runtime control entry/manifest** — `BOOTSTRAP.md`; model-facing current control entry and immutable-release selector.
-3. **Adoption/initialization** — `ADOPT-CHAT-DEV.md`; human-facing installation/adoption process, not runtime bootstrap.
+2. **Runtime control entry/manifest** — `BOOTSTRAP.md`; model-facing current release selector and fresh-epoch loader.
+3. **Caller cognition interface** — `CALLER.md`; release-pinned `GROUND -> ROUTE -> RECONSIDER` caller contract.
+4. **Adoption/initialization** — `ADOPT-CHAT-DEV.md`; human-facing installation/adoption process, not runtime bootstrap.
 
 ## 3. Authority ownership
 
@@ -37,7 +38,7 @@ Owns cross-project Chat Dev control semantics and public-safe contracts:
 
 - runtime caller-entry semantics;
 - current control release selection;
-- stable BRAIN/W interfaces;
+- stable caller/BRAIN/W interfaces;
 - architecture/collaboration invariants;
 - Mutation Lock and public Reasoning Brake semantics;
 - handoff/adoption/Project Instructions authoring guidance.
@@ -59,7 +60,9 @@ Global Chat Dev mechanics must not be copied into Project Profiles.
 
 Default actor is `O` unless explicitly assigned another role.
 
-`O` alone owns Worker/Reviewer evidence acceptance, routing decisions, formal state transitions, commitments and final synthesis.
+`O` alone owns Worker/Reviewer evidence acceptance, formal state transitions, commitments and final synthesis.
+
+`CALLER.md` defines `O`'s normal caller-entry cognition and primary route-selection procedure. This does not create another actor or transfer final authority. `O` does not routinely re-run a valid caller-route result; only the exception-only correction defined by `CALLER.md` may override a missing/malformed or explicitly contradictory result.
 
 BRAIN and W are lazy capabilities.
 
@@ -67,6 +70,14 @@ Visible caller route remains binary:
 
 - `ROUTE=DIRECT`
 - `ROUTE=BRAIN`
+
+The caller cognition envelope is intentionally small:
+
+```text
+GROUND -> ROUTE -> RECONSIDER
+```
+
+`RECONSIDER` is bounded and stop-early. Ordinary BRAIN-routed turns do not receive a second post-BRAIN reconsideration pass. When a BRAIN-routed turn is itself evaluating a proposed method/solution, BRAIN uses its existing single bounded goal/alternative slot for the caller interface's means-independent comparison before operational controls.
 
 BRAIN owns downstream Worker selection, dependency waiting, Mutation Lock application and hard-commitment review escalation.
 
@@ -94,15 +105,15 @@ This invariant applies to O and W source loading; W-specific execution behavior 
 
 Before binding project-specific shorthand to durable meaning, use current conversation plus already-loaded durable truth first. Perform targeted lookup only when multiple materially different referents remain viable and choosing wrong would materially change the answer/route/commitment.
 
-At the end of every final user-visible response under the active binary latch, append the exact active control-latch marker supplied by `BOOTSTRAP.md`.
+At the end of every final user-visible response under the active caller interface, append the exact active control-latch marker supplied by `CALLER.md`.
 
 This is a soft protocol; do not claim deterministic or fail-closed enforcement.
 
 ## 5. Release coherence
 
-`BOOTSTRAP.md` is read from the configured stable bootstrap pointer. It selects exactly one immutable `CONTROL_RELEASE` commit SHA.
+`BOOTSTRAP.md` is read from the configured stable bootstrap pointer. It selects exactly one immutable `CONTROL_RELEASE` commit SHA and loads the caller interface from that release before normal work.
 
-All downstream Chat Dev public repo reads for that epoch use the same SHA. Never mix independently resolved mutable `main` reads for BRAIN/W/control contracts.
+All downstream Chat Dev public repo reads for that epoch, including `CALLER.md`, BRAIN/W and detailed control contracts, use the same SHA. Never mix independently resolved mutable `main` reads for runtime contracts.
 
 The stable bootstrap pointer is the intentionally mutable current-entry surface. Changing its selected release is itself a production control change.
 
@@ -115,9 +126,10 @@ Before repo-centered activation, the existing production files remain authoritat
 After activation, compatibility policy is:
 
 - `chat-dev/` is the current control entry/interface layer for migrated Projects;
+- `chat-dev/CALLER.md` is the current release-pinned caller cognition interface;
 - detailed module contracts that remain useful, including Mutation Lock and Reasoning Brake, stay in their existing module directories and are pinned by `CONTROL_RELEASE`;
 - `chat-dev-control-plane-v0/ARCHITECTURE.md` must not remain a competing current architecture authority; after the rollback window it becomes a compatibility pointer or historical baseline;
-- `BRAIN-AUTO-PILOT.md` may remain the detailed BRAIN implementation contract while `chat-dev/BRAIN.md` is the stable interface;
+- `BRAIN-AUTO-PILOT.md` may remain the detailed BRAIN implementation contract while `chat-dev/BRAIN.md` is the stable interface, but its caller-entry semantics must defer to `CALLER.md` from the same release;
 - no old production file is deleted merely for cosmetic cleanup.
 
 See `COMPATIBILITY.md`.
@@ -132,7 +144,7 @@ Project Profiles remain private/project-local by default.
 
 ## 8. Degraded bootstrap behavior
 
-If the repo runtime entry cannot be loaded, do not invent current Chat Dev control semantics from memory for consequential/external actions.
+If the repo runtime entry or required caller interface cannot be loaded, do not invent current Chat Dev control semantics from memory for consequential/external actions.
 
 Harmless ordinary conversation may continue only when it does not require current Chat Dev control truth. Control-plane changes, external mutations, dependency releases and other consequential commitments remain uncommitted until the approved path is available or an approved fallback is explicitly selected.
 
@@ -142,7 +154,7 @@ This is a behavioral rule, not deterministic fail-closed enforcement.
 
 Publishing these files to the repository does not by itself change a Project's runtime authority.
 
-A Project enters repo-centered control when its active Project Instructions bootstrap loads repo `chat-dev/BOOTSTRAP.md`, which then selects an immutable `CONTROL_RELEASE`.
+A Project enters repo-centered control when its active Project Instructions bootstrap loads repo `chat-dev/BOOTSTRAP.md`, which then selects an immutable `CONTROL_RELEASE` and loads `CALLER.md` from that release.
 
 Changing the stable bootstrap selector, changing a Project's bootstrap kernel, demoting an existing production authority, or otherwise promoting canonical/control semantics is a hard-effect transition and uses the normal BRAIN / independent-review path.
 
