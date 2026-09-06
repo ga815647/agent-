@@ -88,7 +88,7 @@ All required Chat Dev public repo reads for the current epoch use the exact sele
 - `reasoning-brake-v0/RUNTIME.md`
 - `reasoning-brake-v0/STAGE1-PILOT.md` when Stage-1 is actually needed.
 
-Do not independently re-resolve those files from a different mutable revision during the same epoch.
+Do not independently re-resolve those files from mutable `main` during the same epoch.
 
 ## Project-local route
 
