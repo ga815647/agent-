@@ -17,6 +17,7 @@ Repository presence alone does not activate it for a Project. Runtime authority 
 - `PROJECT-INSTRUCTIONS-SHIM.md` — minimal bootstrap kernel template.
 - `ADOPT-CHAT-DEV.md` — human/new-repo adoption entry.
 - `HANDOFF-AUTHORING.md` — rollover/Worker handoff authoring guide.
+- `WORK-MANAGEMENT.md` — human guidance for choosing GitHub vs Notion vs optional Linear as the authoritative home for work and durable knowledge.
 - `COMPATIBILITY.md` — disposition of legacy repo/Notion sources.
 - `ACTIVATION.md` — exact staged production cutover and rollback contract.
 - `MIGRATION.md` — overall migration phases.
