@@ -17,22 +17,22 @@ CHAT_DEV_VERSION=<human-readable version>
 CONTROL_RELEASE=<exact 40-character commit SHA>
 ```
 
-After `BOOTSTRAP.md` is loaded, every downstream Chat Dev repo document required by that epoch must be fetched from `CONTROL_RELEASE`.
+After `BOOTSTRAP.md` is loaded, it must load `chat-dev/CALLER.md` from the exact selected `CONTROL_RELEASE` before normal `O` response/task execution. Every other downstream Chat Dev repo document required by that epoch must use the same `CONTROL_RELEASE`.
 
-Do not independently resolve downstream files from mutable `main`.
+Do not independently resolve caller/BRAIN/W/control files from mutable `main`.
 
 ## Exact SHA is authoritative
 
 An exact commit SHA provides the strongest simple coherence property available in normal Git usage and does not depend on a tag remaining unmodified.
 
-A human-friendly tag such as `chatdev-v30` may point to the same release commit, but runtime release identity remains the exact SHA unless immutable-tag enforcement is separately proven.
+A human-friendly tag such as `chatdev-v31` may point to the same release commit, but runtime release identity remains the exact SHA unless immutable-tag enforcement is separately proven.
 
 ## Release construction
 
 Build a production release in two stages:
 
-1. Create/merge the complete candidate control snapshot and obtain its immutable commit SHA.
-2. Update the stable `chat-dev/BOOTSTRAP.md` pointer to select that SHA.
+1. Create/merge the complete candidate control snapshot, including the release-pinned caller interface and all changed downstream contracts, and obtain its immutable commit SHA.
+2. Update the stable `chat-dev/BOOTSTRAP.md` pointer to select that SHA and human-readable version.
 
 This avoids self-referential commit construction and makes the bootstrap-selector update the explicit release-selector event.
 
@@ -40,7 +40,7 @@ Changing a selector used by active Projects is a durable production control chan
 
 ## Epoch consistency
 
-Once an epoch has loaded a valid `BOOTSTRAP.md` and selected `CONTROL_RELEASE`, that epoch keeps using the selected SHA even if the stable bootstrap pointer changes later.
+Once an epoch has loaded a valid `BOOTSTRAP.md`, selected `CONTROL_RELEASE`, and loaded `CALLER.md` from that release, that epoch keeps using the selected SHA even if the stable bootstrap pointer changes later.
 
 A later fresh epoch loads the then-current stable bootstrap pointer and may select a newer release.
 
