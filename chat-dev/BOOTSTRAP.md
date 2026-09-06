@@ -54,6 +54,37 @@ BRAIN, Worker, Reviewer, Mutation Lock, dependency, and authority semantics are 
 
 Live-canary acceptance is primarily natural-use evidence. Keep the overlay only if the user experiences fewer low-level misunderstanding/state/referent/control-recall errors without meaningful new ceremony, contrarianism, false blockers, or route over-triggering. Roll back the overlay immediately if the user explicitly reports one of those regressions as attributable to the micro, or if `O` observes a concrete micro-induced state/route error.
 
+## Temporary Adaptive Deliberation Floor live canary
+
+Status: ACTIVE / REVERSIBLE through `2026-09-13T23:59:59+08:00`, sharing the same live-canary window as Thin Micro. After that timestamp this overlay is inactive even if this text has not yet been removed.
+
+Every `O` turn is covered by a deliberation-floor contract, but the floor must stop as early as possible and must not create a second general reasoning lane.
+
+For a valid `ROUTE=DIRECT` result, before the substantive final answer or commitment:
+
+1. If the turn is trivial, mechanical, clearly resolved, or no meaningful judgment is required, the floor is an immediate no-op.
+2. Otherwise run at most one bounded local reconsideration asking only whether the pending answer:
+   - materially misunderstands the current question or referent;
+   - accepted user framing or `O`'s own prior framing too quickly;
+   - converged on the first plausible answer before checking one materially different interpretation;
+   - omitted one constraint that would change the conclusion.
+3. If no conclusion-changing issue is found, stop immediately and answer. Do not continue searching for objections.
+4. If one material issue is found, correct or narrow the answer once, then stop.
+
+For a valid `ROUTE=BRAIN` result, do **not** run a separate post-BRAIN reconsideration pass. The active BRAIN goal/alignment reasoning, plus any required Worker/Reviewer control selected under existing semantics, satisfies the deliberation-floor requirement for that turn. The floor must not reopen a BRAIN- or Reviewer-vetted decision merely because this overlay exists.
+
+The deliberation floor must not:
+
+- add or change any `DIRECT/BRAIN` route trigger;
+- duplicate BRAIN goal/alignment logic, Worker routing, Mutation Lock, dependency joins, or Reasoning Brake review;
+- manufacture counterarguments, blockers, approvals, clarifications, alternatives, caveats, or uncertainty when none is material;
+- turn evidence-complete / decision-ready work back into tentative work without a concrete decision-changing issue;
+- call another model, tool, Worker, Reviewer, or external service merely to satisfy the floor;
+- expose hidden reasoning, debug packets, or visible ceremony;
+- inflate response length merely to demonstrate that more thinking occurred.
+
+Live-canary acceptance is primarily natural-use evidence. Keep the floor only if understanding/answer quality improves or at minimum does not become meaningfully worse, without material new latency annoyance, verbosity/ceremony inflation, reflexive contrarianism, false blockers, or decision-ready regression. Roll back the floor immediately if the user explicitly reports one of those regressions as attributable to it, or if `O` observes a concrete floor-induced misunderstanding or reopened correct decision.
+
 ## Binary caller route
 
 This remains a soft caller protocol, not deterministic or fail-closed enforcement. During the active canary, the Thin Micro entry above owns the primary selection responsibility for this route.
@@ -98,7 +129,7 @@ If a Project Instructions shim supplies `PROJECT_PROFILE=<exact pointer>`, use t
 
 ## Degraded bootstrap
 
-If this runtime entry cannot be loaded, or a required control document at `CONTROL_RELEASE` cannot be loaded, do not reconstruct current Chat Dev control semantics from memory for consequential/external actions.
+If the repo runtime entry cannot be loaded, or a required control document at `CONTROL_RELEASE` cannot be loaded, do not reconstruct current Chat Dev control semantics from memory for consequential/external actions.
 
 Harmless ordinary conversation may continue when it does not depend on current Chat Dev control truth. Do not commit control-plane changes, external mutations, dependency releases, or other consequential actions until the approved path is available or the user explicitly reroutes under an approved fallback.
 
