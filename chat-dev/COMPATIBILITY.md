@@ -8,7 +8,7 @@ This file defines the intended post-activation disposition of existing Chat Dev 
 
 After repo-centered activation, only one surface is the model runtime current-entry authority:
 
-`Project Instructions shim -> chat-dev/BOOTSTRAP.md -> CONTROL_RELEASE`
+`Project Instructions shim -> chat-dev/BOOTSTRAP.md -> CONTROL_RELEASE -> chat-dev/CALLER.md`
 
 Other documents may remain active module contracts, human dashboards, project-local truth, compatibility pointers, or historical evidence. They must not present themselves as a competing current runtime entry.
 
@@ -16,7 +16,8 @@ Other documents may remain active module contracts, human dashboards, project-lo
 
 | Existing source | Post-activation role | Action |
 | --- | --- | --- |
-| `chat-dev/BOOTSTRAP.md` | current runtime entry / release selector | ACTIVE authority when a Project shim points here |
+| `chat-dev/BOOTSTRAP.md` | stable current release selector / fresh-epoch loader | ACTIVE authority when a Project shim points here |
+| `chat-dev/CALLER.md` | release-pinned caller cognition / caller-route interface | ACTIVE interface; loaded from selected release before normal O work |
 | `chat-dev/ARCHITECTURE.md` | current cross-project architecture | ACTIVE canonical architecture |
 | `chat-dev/BRAIN.md` | stable BRAIN interface | ACTIVE interface |
 | `chat-dev/W.md` | stable W interface | ACTIVE interface |
@@ -24,7 +25,7 @@ Other documents may remain active module contracts, human dashboards, project-lo
 | `chat-dev/PROJECT-INSTRUCTIONS-SHIM.md` | installation/migration template | ACTIVE template, non-runtime |
 | `chat-dev/ADOPT-CHAT-DEV.md` | human adoption entry | ACTIVE human guide, non-runtime |
 | `chat-dev-control-plane-v0/ARCHITECTURE.md` | legacy baseline / compatibility pointer | after rollback window, mark legacy and point to `chat-dev/ARCHITECTURE.md`; preserve historical body or history |
-| `chat-dev-control-plane-v0/BRAIN-AUTO-PILOT.md` | detailed BRAIN module contract during compatibility phase | RETAIN; it is not the current runtime entry and may be loaded only from the selected `CONTROL_RELEASE` |
+| `chat-dev-control-plane-v0/BRAIN-AUTO-PILOT.md` | detailed BRAIN module contract during compatibility phase | RETAIN; caller-entry semantics defer to `chat-dev/CALLER.md` from the same release |
 | `chat-dev-control-plane-v0/MUTATION-LOCK.md` | Mutation Lock module contract | RETAIN active module contract; load from selected release |
 | `reasoning-brake-v0/RUNTIME.md` | Reasoning Brake module contract | RETAIN active module contract; load from selected release |
 | `reasoning-brake-v0/STAGE1-PILOT.md` | narrow Stage-1 module contract | RETAIN; load only when its condition is met and from selected release |
