@@ -2,19 +2,20 @@
 
 Status: ACTIVE DEFAULT — REVERSIBLE
 Promotion date: 2026-09-03
-Scope: goal-aligned cognitive/control handler entered from the binary caller route. Historical filename retained for durable-pointer compatibility.
+Scope: goal-aligned cognitive/control handler entered only from the release-pinned caller interface. Historical filename retained for durable-pointer compatibility.
 
 ## Goal
 
-BRAIN interrupts control-boundary momentum and makes the caller reason from the user's likely goal rather than merely execute the latest proposed means.
+BRAIN interrupts control-boundary momentum and makes the caller reason from the user's established goal rather than merely execute the latest proposed means.
 
-BRAIN is not the caller sentinel and is not a second Orchestrator. The caller surface is intentionally smaller: `O` chooses only `ROUTE=DIRECT` or `ROUTE=BRAIN`; once entered, BRAIN uses the caller's existing context and applies only the operational controls needed for the pending boundary.
+BRAIN is not the caller sentinel and is not a second Orchestrator. Caller entry, grounding, primary DIRECT/BRAIN selection, and caller-level reconsideration are owned by `chat-dev/CALLER.md` from the same `CONTROL_RELEASE`. Once entered, BRAIN uses the caller's existing context and applies only the goal/alignment work and operational controls needed for the pending boundary.
 
 It is not a deterministic runtime tool, model call, service, MCP, state machine, sandbox, output gate, or hard latch.
 
 ## Authority
 
-- `O` remains the sole authority for routing, Worker-result acceptance, formal state transitions, commitments, and final synthesis.
+- `O` remains the sole authority for Worker-result acceptance, formal state transitions, commitments, and final synthesis.
+- `CALLER.md` defines `O`'s normal primary route-selection procedure; this does not create another actor or independent authority.
 - `W` remains bounded by the scope and authority supplied by `O`.
 - BRAIN never grants authority, executes bounded work, creates actors, accepts evidence, or owns a final decision.
 - `USE_W` is valid only when caller = `O`.
@@ -22,28 +23,20 @@ It is not a deterministic runtime tool, model call, service, MCP, state machine,
 
 ## Caller entry / invocation boundary
 
-After fresh-epoch bootstrap has loaded `Chat Dev｜Current`, every `O` turn uses only the binary caller route:
+Fresh-epoch runtime entry is:
 
-- `ROUTE=DIRECT`
-- `ROUTE=BRAIN`
+```text
+Project Instructions shim
+  -> chat-dev/BOOTSTRAP.md
+  -> CONTROL_RELEASE
+  -> chat-dev/CALLER.md from that release
+```
 
-Choose `ROUTE=BRAIN` before task execution when the turn approaches any of:
+`CALLER.md` owns the binary caller route and first-visible-line contract. BRAIN does not independently select or redefine the caller route.
 
-- substantial bounded work where `W` may materially save O context or execution burden;
-- delegation / Worker handoff;
-- external mutation;
-- release of a commitment or transition that has a required pending Worker / production Reviewer dependency;
-- consequential commitment.
+BRAIN is entered only after the caller interface selects `ROUTE=BRAIN`. Dependency blocking and Worker selection remain BRAIN/downstream semantics; there is no caller-facing `WAIT` or `W_CANDIDATE` route.
 
-Ordinary direct reasoning that does not approach one of these boundaries stays `ROUTE=DIRECT` and pays no BRAIN tax.
-
-There is no caller-facing `WAIT` or `W_CANDIDATE` route. Dependency blocking and Worker selection remain BRAIN/downstream semantics. Collapsing the visible route must not weaken either control.
-
-A short confirmation inherits the immediately preceding proposed action for boundary detection. If the inherited action crosses a BRAIN boundary, enter BRAIN; otherwise remain direct.
-
-The caller does not pre-classify downstream control families before entering BRAIN and does not need a magic phrase such as `BRAIN AUTO`.
-
-Fresh-epoch bootstrap is not owned by BRAIN: Project Instructions must fetch `Chat Dev｜Current` before normal assistant-visible response or task execution so the caller can learn the current route semantics without circular dependence.
+A short confirmation and other caller-grounding rules are handled before BRAIN entry by `CALLER.md`.
 
 ## Input
 
@@ -57,9 +50,23 @@ BRAIN uses:
 
 For `O`, full conversation context is the primary source for goal inference. BRAIN does not replace that context with a smaller reviewer packet.
 
-## 1. Cheap goal/means alignment gate
+## 1. Proposal / solution de-anchoring branch
 
-First ask:
+If the BRAIN-routed turn is itself evaluating or deciding a proposed method/solution, use the existing single bounded goal/alternative slot once before operational controls:
+
+1. hold the established user goal fixed;
+2. ask what the caller would independently recommend if the currently proposed means had not been supplied;
+3. compare that recommendation with the proposed means;
+4. if materially aligned, stop the comparison and continue;
+5. if materially different in a conclusion-changing way, surface or account for the difference before commitment/operational controls.
+
+This consumes BRAIN's bounded alternative slot for the turn. Do not run a second Goal Pass or a post-BRAIN reconsideration merely because `CALLER.md` has a reconsideration contract.
+
+Explicit feasible user instructions remain strong evidence. This branch does not authorize silently replacing a requested method. After explicit approval, ordinary execution does not reopen the chosen method unless new material evidence, uncertainty, or tradeoff appears.
+
+## 2. Cheap goal/means alignment gate
+
+When the proposal/solution branch above is not active, first ask:
 
 > Is the pending means/action obviously consistent with the user's stated or already-established goal and the current project state?
 
@@ -76,7 +83,7 @@ Guardrails:
 - Do not silently replace an explicit requested method merely because another method appears preferable.
 - A goal hypothesis may justify `REVISE`, comparison, or surfacing a materially better path; it is not new authority.
 
-## 2. Goal Pass — only on goal/means mismatch or uncertainty
+## 3. Goal Pass — only on goal/means mismatch or uncertainty
 
 Make the caller, especially `O`, use its available context to:
 
@@ -89,13 +96,13 @@ Make the caller, especially `O`, use its available context to:
 
 For consequential reasoning, the escape pass is the default spare cycle: one bounded attempt to leave the first framing, not repeated self-reflection.
 
-## 3. Operational control pass
+## 4. Operational control pass
 
-After alignment / Goal Pass, apply only the controls required by the pending boundary.
+After the proposal comparison, alignment gate, or Goal Pass as applicable, apply only the controls required by the pending boundary.
 
 ### Worker routing
 
-For substantial bounded work, `O` chooses direct execution or `W` under canonical Worker semantics. `W` may be proactively discovered only through the binary `ROUTE=BRAIN` entry; no caller-facing `W_CANDIDATE` classification is required.
+For substantial bounded work, `O` chooses direct execution or `W` under canonical Worker semantics after BRAIN entry. `W` may be proactively discovered only through the caller interface's `ROUTE=BRAIN` entry; no caller-facing `W_CANDIDATE` classification is required.
 
 Stage-1 remains narrow: only when the proposed Worker delegation/decomposition is both materially consequential if wrong and genuinely uncertain at dispatch time.
 
@@ -117,13 +124,13 @@ A. changes or promotes durable production, canonical architecture, or control se
 B. changes actor authority, safety/privacy/security boundaries, or dependency enforcement;
 C. creates material external impact or commitment whose consequences extend beyond local reasoning/workspace and are not fully neutralized by technical rollback, including public/third-party communication, money, production/user impact, or destructive/large-scale state change;
 D. is otherwise costly or hard to reverse;
-E. retains unresolved evidence conflict or decision-controlling uncertainty after the caller's goal/alternative pass.
+E. retains unresolved evidence conflict or decision-controlling uncertainty after the caller's bounded goal/alternative work.
 
 Reversible exploration, research acceptance, ordinary prioritization, tentative/no-change recommendations, and local reversible work do not require external review unless they independently meet A-E.
 
 Caller confidence never waives A-E.
 
-## 4. Results
+## 5. Results
 
 BRAIN returns the minimum action-oriented guidance needed, such as:
 
@@ -135,8 +142,6 @@ BRAIN returns the minimum action-oriented guidance needed, such as:
 - `RETURN_TO_O` — caller `W`
 - `ESCALATE_REVIEW`
 
-If no BRAIN invocation boundary actually exists, remain `O DIRECT`; do not manufacture a `CONTINUE` ceremony merely to pass through BRAIN.
-
 These are protocol outcomes, not new authorities or runtime-enforced states.
 
 ## Runtime shape
@@ -144,19 +149,19 @@ These are protocol outcomes, not new authorities or runtime-enforced states.
 ```text
 fresh O epoch
     ↓
-Project Instructions bootstrap: fetch Current before normal response/task execution
+BOOTSTRAP -> pinned CALLER
     ↓
-every O turn
-    ↓
-ROUTE=DIRECT or ROUTE=BRAIN
-    ├─ DIRECT → ordinary O work
+GROUND -> ROUTE -> RECONSIDER
+    ├─ DIRECT -> O work
     └─ BRAIN
          ↓
+       proposal comparison if applicable
+         OR
        cheap goal/means alignment gate
-         ├─ clear → operational controls
+         ├─ clear -> operational controls
          └─ goal/means mismatch or uncertainty
                 ↓
-             Goal Pass by caller
+             one Goal Pass
                 ↓
              operational controls
                 ├─ CONTINUE / REVISE / VERIFY
@@ -176,23 +181,23 @@ Promotion evidence included:
 - live v28 fresh-epoch evidence showing a Current-only first-visible-line route rule can be missed before Current is fetched, motivating an external bootstrap kernel;
 - a natural v28 `W_CANDIDATE` false positive on a small read-only continuation, supporting removal of caller-side downstream pre-classification;
 - goal-first design reviews that rejected mandatory latent-goal re-inference and O-confidence reviewer self-waiver;
-- frozen v0/v1 representative traces showing no authority, join, mutation, or hard-review invariant regressions after correcting one real goal-vs-operational uncertainty ambiguity.
+- frozen v0/v1 representative traces showing no authority, join, mutation, or hard-review invariant regressions after correcting one real goal-vs-operational uncertainty ambiguity;
+- v30 live-canaried caller grounding, primary route ownership, bounded DIRECT reconsideration, and proposal de-anchoring stop rules, consolidated by `CALLER.md` rather than duplicated here.
 
-The binary promotion preserves proactive Worker discovery by making W-worthiness itself a BRAIN-entry trigger and preserves dependency blocking by keeping `WAIT` as a BRAIN/downstream result.
-
-This supports a reversible production semantic promotion, not a claim of deterministic enforcement or statistically proven natural long-context reliability.
+This supports a reversible production semantic design, not a claim of deterministic enforcement or statistically proven natural long-context reliability.
 
 ## Stop / revise rule
 
-Revise or roll back if natural use shows that the binary caller surface or BRAIN:
+Revise or roll back if natural use shows that caller/BRAIN interaction:
 
 - causes repeated missed Worker opportunities that materially consume O context;
 - makes required dependency release easier to cross;
 - causes repeated latent-goal over-inference on explicit/simple requests;
 - recreates per-turn ceremony;
 - makes operational controls easier to skip;
+- repeatedly reopens already-approved methods without new evidence;
 - lets `W` gain authority or recursively route Workers;
 - weakens independent review on material hard-boundary commitments;
-- becomes another hidden Orchestrator rather than a forcing protocol.
+- turns BRAIN into another hidden Orchestrator rather than a forcing protocol.
 
-Hard enforcement still requires a runtime surface that actually owns dispatch/output/action release; the binary latch and BRAIN do not provide one.
+Hard enforcement still requires a runtime surface that actually owns dispatch/output/action release; the caller latch and BRAIN do not provide one.
