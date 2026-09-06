@@ -22,6 +22,33 @@ After the Project Instructions bootstrap shim loads this file:
 - external mutations default to read-only until exact authorized effect/target binding is satisfied;
 - required Worker/production Reviewer dependencies block only their dependent acceptance/final/handoff.
 
+## Temporary Thin Micro live canary
+
+Status: ACTIVE / REVERSIBLE through `2026-09-13T23:59:59+08:00`. After that timestamp this overlay is inactive even if this text has not yet been removed; the unchanged v30 caller route remains the baseline.
+
+Before selecting the existing Binary caller route on every `O` user turn, run one cheap local state-grounding check using only the latest user turn and immediately relevant visible conversation trace already available to `O`.
+
+The check may only:
+
+- preserve the latest explicit instruction, cancellation, authorization, task-mode change, and referent;
+- treat short confirmations as referring to the immediately preceding proposed action when the visible trace supports that reading;
+- when the user claims that `O` just did or did not do something, verify that claim against the visible trace when it is directly resolvable before accepting or rejecting the framing;
+- notice an obvious state mismatch that would otherwise cause `O` to answer the wrong current turn.
+
+If the trace does not resolve the point, do not invent certainty. If no mismatch is found, this check is a no-op.
+
+This overlay must not:
+
+- add, remove, or broaden any v30 `ROUTE=BRAIN` trigger;
+- infer latent motives or reconstruct hidden goals;
+- generate alternatives, reflexive counterarguments, clarifications, blockers, or approval gates;
+- call a model, tool, Worker, Reviewer, or external service;
+- emit any visible micro/debug output or add ceremony.
+
+After the check, continue immediately to the exact existing Binary caller route below. BRAIN, Worker, Reviewer, Mutation Lock, dependency, and authority semantics are unchanged.
+
+Live-canary acceptance is primarily natural-use evidence. Keep the overlay only if the user experiences fewer low-level misunderstanding/state/referent/control-recall errors without meaningful new ceremony, contrarianism, false blockers, or route over-triggering. Roll back the overlay immediately if the user explicitly reports one of those regressions as attributable to the micro, or if `O` observes a concrete micro-induced state/route error.
+
 ## Binary caller route
 
 This is a soft caller protocol, not deterministic or fail-closed enforcement.
