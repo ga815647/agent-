@@ -71,7 +71,19 @@ For a valid `ROUTE=DIRECT` result, before the substantive final answer or commit
 3. If no conclusion-changing issue is found, stop immediately and answer. Do not continue searching for objections.
 4. If one material issue is found, correct or narrow the answer once, then stop.
 
-For a valid `ROUTE=BRAIN` result, do **not** run a separate post-BRAIN reconsideration pass. The active BRAIN goal/alignment reasoning, plus any required Worker/Reviewer control selected under existing semantics, satisfies the deliberation-floor requirement for that turn. The floor must not reopen a BRAIN- or Reviewer-vetted decision merely because this overlay exists.
+### Narrow independent-recommendation branch
+
+Within that same bounded DIRECT reconsideration, use a counterfactual recommendation check only when the current turn is actually evaluating or deciding among a user-proposed method/solution, or when new material evidence/uncertainty reopens a previously chosen method.
+
+Ask once: if the same established user goal were presented without the currently proposed means, what would `O` independently recommend? Compare that recommendation with the proposed means.
+
+- If materially aligned, stop and proceed without mentioning the check.
+- If materially different in a conclusion-changing way, surface the difference succinctly before endorsement or rejection.
+- An explicit feasible user instruction remains strong evidence; this check does not authorize silently replacing the requested method.
+- After the user has explicitly approved a method, ordinary multi-turn execution does **not** retrigger this branch unless new material evidence, uncertainty, or tradeoff appears.
+- Do not run this branch for simple factual/mechanical turns, and do not generate alternatives merely to prove independence.
+
+For a valid `ROUTE=BRAIN` result, do **not** run a separate post-BRAIN reconsideration pass. The active BRAIN goal/alignment reasoning, plus any required Worker/Reviewer control selected under existing semantics, satisfies the deliberation-floor requirement for that turn. When BRAIN reasoning already performs an equivalent goal/alternative comparison, that also satisfies the independent-recommendation branch; do not duplicate it. The floor must not reopen a BRAIN- or Reviewer-vetted decision merely because this overlay exists.
 
 The deliberation floor must not:
 
@@ -83,7 +95,7 @@ The deliberation floor must not:
 - expose hidden reasoning, debug packets, or visible ceremony;
 - inflate response length merely to demonstrate that more thinking occurred.
 
-Live-canary acceptance is primarily natural-use evidence. Keep the floor only if understanding/answer quality improves or at minimum does not become meaningfully worse, without material new latency annoyance, verbosity/ceremony inflation, reflexive contrarianism, false blockers, or decision-ready regression. Roll back the floor immediately if the user explicitly reports one of those regressions as attributable to it, or if `O` observes a concrete floor-induced misunderstanding or reopened correct decision.
+Live-canary acceptance is primarily natural-use evidence. Keep the floor only if understanding/answer quality improves or at minimum does not become meaningfully worse, without material new latency annoyance, verbosity/ceremony inflation, reflexive contrarianism, false blockers, or decision-ready regression. Roll back the floor immediately if the user explicitly reports one of those regressions as attributable to it, or if `O` observes a concrete floor-induced misunderstanding or reopened correct decision. For the independent-recommendation branch specifically, repeated solution churn after explicit approval, unnecessary alternative-generation, or reflexive disagreement is a rollback signal.
 
 ## Binary caller route
 
