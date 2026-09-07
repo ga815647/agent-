@@ -30,6 +30,19 @@ Confirm:
 - no required runtime pointer silently resolves from mutable `main`;
 - rollback target is recorded.
 
+## Dynamic-state drift check
+
+Before promoting a release that references mutable operational state, confirm:
+
+- every value intentionally mutable without `CONTROL_RELEASE` promotion has one live owning artifact;
+- narrative README/dashboard/public control prose does not duplicate that value as **current** state;
+- historical copies are explicitly dated/labeled as historical evidence;
+- current-state lookup instructions point to the live owner;
+- if the execution path consumes a machine-readable policy/config file, that consumed artifact wins over descriptive prose;
+- compatibility dashboards do not copy release/model/effort values that can be read from their authoritative owner.
+
+A duplicated mutable value is a drift risk even when the copies happen to match at promotion time.
+
 ## Exact-source loading regression
 
 Exercise at least one case where an exact authoritative pin/version is correct but the first connector read returns a truncated/partial body.
@@ -65,7 +78,8 @@ When convenient or decision-relevant:
 - exact source remains unrecoverable after bounded same-source retrieval;
 - stale memory conflicts with durable bootstrap truth;
 - short confirmation inherits a BRAIN-boundary action;
-- stable bootstrap changes after an epoch has already selected a release.
+- stable bootstrap changes after an epoch has already selected a release;
+- descriptive documentation claims a current mutable operational value that differs from its owning artifact.
 
 ## Promotion interpretation
 
