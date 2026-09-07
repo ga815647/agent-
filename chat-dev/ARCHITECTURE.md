@@ -56,6 +56,22 @@ Owns:
 
 Global Chat Dev mechanics must not be copied into Project Profiles.
 
+### Dynamic operational state
+
+A value that is intentionally allowed to change without promoting a new public `CONTROL_RELEASE` must have exactly one live owning source.
+
+Rules:
+
+- the artifact actually consumed by the active execution path is authoritative for that mutable value;
+- narrative README/dashboard/control documents must not duplicate the value as **current** state;
+- those documents may contain a pointer to the live owner and may retain dated historical snapshots only when explicitly labeled as historical evidence;
+- when answering a question about current mutable operational state, fresh-read the owning artifact rather than inferring from promotion prose, historical evidence, memory, or a compatibility dashboard;
+- if an operational state has no stable owning artifact, do not manufacture a second pseudo-SSOT in documentation; either derive it from the active implementing artifacts or introduce an explicit owner only when the implementation will actually consume/maintain it.
+
+For the current private Reviewer path, `ga815647/chatdev-exec/reviewer-policy.json` is the live authority for production reviewer model and reasoning effort because the production workflow consumes it. Public Reasoning Brake docs own reviewer **semantics**, not the mutable model/effort value.
+
+This rule prevents descriptive documentation from becoming a competing, silently stale current-state copy.
+
 ## 4. Runtime invariants
 
 Default actor is `O` unless explicitly assigned another role.
