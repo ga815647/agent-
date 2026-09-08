@@ -4,8 +4,8 @@ Role: stable model-facing runtime entry and immutable release selector.
 
 Authority: this entry is active for a Project only when that Project's active Project Instructions bootstrap points to this stable repo path.
 
-`CHAT_DEV_VERSION=32`
-`CONTROL_RELEASE=45c7f4e4a4e89683dbe3330601be2ee15fcd3168`
+`CHAT_DEV_VERSION=33`
+`CONTROL_RELEASE=ceeba80b1f67fd55d6b027be98e7a11461e78592`
 
 This is the **model runtime control entry / manifest**. It is not the Project Instructions kernel and not the human adoption guide.
 
@@ -30,6 +30,7 @@ Do not independently reconstruct caller-entry semantics from this manifest. `cha
 All required Chat Dev public repo reads for the current epoch use the exact selected `CONTROL_RELEASE`:
 
 - `chat-dev/CALLER.md` — required fresh-epoch caller interface;
+- `chat-dev/RUNTIME-ENTRY.md` — required turn receipt / consequential-effect interface when called by CALLER;
 - `chat-dev/ARCHITECTURE.md`;
 - `chat-dev/BRAIN.md` when selected;
 - `chat-dev/W.md` when selected;
