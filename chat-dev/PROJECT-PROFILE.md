@@ -1,6 +1,8 @@
 # Chat Dev Project Profile Contract
 
-Authority: this contract is current for a Project only when that Project's active bootstrap selects a `CONTROL_RELEASE` containing this file and the release architecture points to it.
+Status: PUBLIC AUTHORING / VALIDATION CONTRACT — NOT RUNTIME BOOTSTRAP INPUT
+
+This contract derives from the active release-pinned `chat-dev/ARCHITECTURE.md`. It does not override that architecture, change caller/BRAIN/W runtime semantics, or require an additional fresh-epoch preload. Use it when creating, auditing or repairing a Project Profile.
 
 ## Purpose
 
