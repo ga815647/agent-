@@ -44,7 +44,13 @@ Owns cross-project Chat Dev control semantics and public-safe contracts:
 - handoff/adoption/Project Instructions authoring guidance.
 
 ### Private `ga815647/chatdev-exec`
-Owns reviewer execution substrate, reviewer policy and private reviewer results only. It never overrides public semantics.
+Owns private execution substrate and operational evidence plumbing, including:
+
+- production Reviewer execution substrate, reviewer policy and private reviewer results;
+- Runtime Wrapper implementation for bounded snapshot/read aggregation, mutation PREPARE, and contributor-safe Spark W execution;
+- execution-local/durable dispatch state and raw/compact execution evidence produced by those paths.
+
+Private execution artifacts implement public contracts but never override public authority/control semantics. Execution evidence/state is not automatically canonical project truth; O retains acceptance/promotion authority under the active public contract.
 
 ### Project-local durable source
 Owns:
@@ -69,6 +75,8 @@ Rules:
 - if an operational state has no stable owning artifact, do not manufacture a second pseudo-SSOT in documentation; either derive it from the active implementing artifacts or introduce an explicit owner only when the implementation will actually consume/maintain it.
 
 For the current private Reviewer path, `ga815647/chatdev-exec/reviewer-policy.json` is the live authority for production reviewer model and reasoning effort because the production workflow consumes it. Public Reasoning Brake docs own reviewer **semantics**, not the mutable model/effort value.
+
+For the Runtime Wrapper contributor lane, the active private workflow/adapter owns mutable provider/model/output-budget/runtime configuration because that execution path consumes it. Public `W.md` owns Worker eligibility, transport/fallback semantics, authority boundaries and evidence status; it must not duplicate mutable private runtime settings as current truth.
 
 This rule prevents descriptive documentation from becoming a competing, silently stale current-state copy.
 
@@ -103,7 +111,12 @@ A required Worker or production Reviewer dependency blocks only its dependent ac
 
 External mutation remains read-only until the intended effect, target resource type and exact target identity/destination are bound under Mutation Lock.
 
-Normal Worker transport remains human-mediated unless a future explicit production change replaces it.
+Worker transport is capability-selected under `W.md`:
+
+- eligible cognition-only contributor-safe bounded jobs prefer the private Runtime Wrapper typed transport;
+- private, tool-rich, unsupported, wrapper-unavailable, or explicitly rerouted jobs use the human-mediated fresh Worker Chat path;
+- transport choice changes plumbing only and does not change W authority, evidence status, dependency semantics, or O's final acceptance/commitment authority;
+- a wrapper dispatch with durable claim but no validated terminal evidence is `AMBIGUOUS` and must not auto-resubmit.
 
 ### Exact-source retrieval robustness
 
@@ -123,7 +136,7 @@ Before binding project-specific shorthand to durable meaning, use current conver
 
 At the end of every final user-visible response under the active caller interface, append the exact active control-latch marker supplied by `CALLER.md`.
 
-This is a soft protocol; do not claim deterministic or fail-closed enforcement.
+This is a soft protocol; do not claim deterministic or fail-closed enforcement beyond the specific runtime checks actually implemented by an execution substrate.
 
 ## 5. Release coherence
 
