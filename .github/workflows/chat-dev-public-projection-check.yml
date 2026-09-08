@@ -1,0 +1,85 @@
+name: Chat Dev public projection consistency
+
+on:
+  push:
+    branches:
+      - production/public-projection-issue204-v0
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  projection-consistency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout candidate history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Validate candidate release projection semantics
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from __future__ import annotations
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          parent = subprocess.check_output(['git', 'rev-parse', 'HEAD^'], text=True).strip()
+          changed = subprocess.check_output(['git', 'diff', '--name-only', 'HEAD^', 'HEAD'], text=True).splitlines()
+          activation = changed == ['chat-dev/BOOTSTRAP.md']
+          release = parent if activation else head
+
+          def show(path: str) -> str:
+              return subprocess.check_output(['git', 'show', f'{release}:{path}'], text=True)
+
+          files = {
+              'legacy': show('chat-dev-control-plane-v0/ARCHITECTURE.md'),
+              'stage1': show('reasoning-brake-v0/STAGE1-PILOT.md'),
+              'validation': show('chat-dev/VALIDATION.md'),
+              'caller': show('chat-dev/CALLER.md'),
+              'architecture': show('chat-dev/ARCHITECTURE.md'),
+              'w': show('chat-dev/W.md'),
+          }
+
+          stale = [
+              ('P001', 'legacy', 'Status: ACTIVE BASELINE — REVERSIBLE'),
+              ('P002', 'legacy', 'fetch Chat Dev｜Current before normal assistant-visible response/task execution'),
+              ('P003', 'legacy', 'Before task execution on each O turn, emit the current binary caller route from Current.'),
+              ('P004', 'legacy', 'Production Worker transport is human-mediated:'),
+              ('P005', 'legacy', 'Current reviewer policy at promotion: `gpt-5.6-sol`, reasoning `low`.'),
+              ('P006', 'stage1', 'fixed Chat-high Worker'),
+              ('P007', 'stage1', 'Use the existing private production reviewer lane and policy (`gpt-5.6-sol / low`).'),
+              ('P008', 'validation', 'exact first-visible `ROUTE=DIRECT` / `ROUTE=BRAIN` caller line'),
+              ('P009', 'validation', 'Worker authority limits and human-mediated transport'),
+          ]
+          failures = [pid for pid, key, needle in stale if needle in files[key]]
+          assert not failures, f'stale projection assertions remain: {failures}'
+
+          positives = [
+              ('C001', 'caller', 'Route selection is internal control state. Do not emit `ROUTE=DIRECT` or `ROUTE=BRAIN` merely to demonstrate protocol compliance.'),
+              ('C002', 'architecture', 'Worker transport is capability-selected under `W.md`'),
+              ('C003', 'w', 'Wrapper-backed contributor lane — preferred when eligible'),
+              ('C004', 'architecture', '`ga815647/chatdev-exec/reviewer-policy.json` is the live authority for production reviewer model and reasoning effort'),
+              ('R001', 'legacy', 'HISTORICAL / COMPATIBILITY PROJECTION — NON-CURRENT'),
+              ('R002', 'stage1', 'Mutable production reviewer model and reasoning effort are owned by `ga815647/chatdev-exec/reviewer-policy.json`'),
+              ('R003', 'validation', 'Worker authority limits and capability-selected transport under `W.md`'),
+          ]
+          missing = [cid for cid, key, needle in positives if needle not in files[key]]
+          assert not missing, f'positive projection checks missing: {missing}'
+
+          bootstrap = Path('chat-dev/BOOTSTRAP.md').read_text(encoding='utf-8')
+          match = re.search(r'`CONTROL_RELEASE=([0-9a-f]{40})`', bootstrap)
+          assert match, 'BOOTSTRAP CONTROL_RELEASE missing'
+          selected = match.group(1)
+          if activation:
+              assert selected == release, f'activation selector {selected} != release parent {release}'
+          else:
+              assert selected != release, 'content candidate must not self-activate before independent review'
+
+          print(f'projection consistency PASS release={release} activation={activation} selected={selected}')
+          PY

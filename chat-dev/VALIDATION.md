@@ -1,21 +1,21 @@
 # Chat Dev Repo-Centered Validation
 
-Status: SHADOW CANDIDATE / NON-AUTHORITATIVE
+Status: CURRENT PROMOTION AID / NON-AUTHORITATIVE
 
-Validation is a promotion aid, not the main refactor workstream.
+Validation supports promotion judgment; it does not own runtime semantics.
 
 ## Static semantic parity
 
-Before activation, confirm the candidate preserves production v29 semantics for:
+Before activation, confirm the candidate preserves the current release-pinned invariants:
 
-- fresh-epoch bootstrap before normal response/task execution;
-- exact first-visible `ROUTE=DIRECT` / `ROUTE=BRAIN` caller line;
+- fresh-epoch bootstrap loads stable `BOOTSTRAP.md`, then exact immutable `CONTROL_RELEASE`, then `CALLER.md` before normal work;
+- caller route selection remains internal control state; no visible `ROUTE=DIRECT` / `ROUTE=BRAIN` line is required merely for protocol compliance;
 - short-confirmation inheritance;
 - lazy BRAIN/W loading;
 - O-only final acceptance/commitment authority;
-- Worker authority limits and human-mediated transport;
+- Worker authority limits and capability-selected transport under `W.md`;
 - required dependency joins;
-- Mutation Lock;
+- Mutation Lock effect/resource/target binding;
 - hard A-E independent review gate;
 - final control-latch marker;
 - project-local Profile routing;
@@ -28,7 +28,8 @@ Confirm:
 - stable `BOOTSTRAP.md` selects one exact `CONTROL_RELEASE` SHA;
 - all downstream Chat Dev public repo reads use that SHA for the epoch;
 - no required runtime pointer silently resolves from mutable `main`;
-- rollback target is recorded.
+- rollback target is recorded;
+- a release candidate is reviewed as an exact immutable diff before the stable selector is changed.
 
 ## Dynamic-state drift check
 
@@ -39,9 +40,19 @@ Before promoting a release that references mutable operational state, confirm:
 - historical copies are explicitly dated/labeled as historical evidence;
 - current-state lookup instructions point to the live owner;
 - if the execution path consumes a machine-readable policy/config file, that consumed artifact wins over descriptive prose;
-- compatibility dashboards do not copy release/model/effort values that can be read from their authoritative owner.
+- compatibility projections do not copy release/model/effort/provider/output-budget values that can be read from their authoritative owner.
 
 A duplicated mutable value is a drift risk even when the copies happen to match at promotion time.
+
+## Projection consistency check
+
+For compatibility, pilot, validation and other non-canonical projections:
+
+1. identify the current owner for each asserted semantic or mutable value;
+2. reject projections that self-identify as current authority when they are historical/compatibility only;
+3. reject obsolete bootstrap, route-visibility or Worker-transport assertions;
+4. reject copied mutable Reviewer/Worker runtime values presented as current truth;
+5. prefer a pointer to the active owner over duplicating prose when a projection no longer needs a full live copy.
 
 ## Exact-source loading regression
 
@@ -59,10 +70,10 @@ A first-call `TRUNCATED` result alone must not be treated as evidence that the a
 
 ## Lightweight fresh-epoch smoke
 
-When practical before activation, prove the actual configured path can start from a fresh epoch:
+When practical before activation, prove the configured path can start from a fresh epoch:
 
-1. shim → `BOOTSTRAP.md` → `ROUTE=DIRECT`;
-2. shim → `BOOTSTRAP.md` → `ROUTE=BRAIN` → `BRAIN.md`;
+1. shim → stable `BOOTSTRAP.md` → exact release `CALLER.md` → an ordinary DIRECT outcome without requiring a visible route line;
+2. shim → stable `BOOTSTRAP.md` → exact release `CALLER.md` → BRAIN selection → exact release `BRAIN.md`;
 3. one project-local route when the adopting Project has a Profile.
 
 A heavy standalone New Project Canary program is optional unless a material uncertainty specifically requires it.
@@ -72,17 +83,19 @@ A heavy standalone New Project Canary program is optional unless a material unce
 When convenient or decision-relevant:
 
 - repo bootstrap unavailable;
-- BRAIN/W read at selected release unavailable;
+- CALLER/BRAIN/W read at selected release unavailable;
 - project Profile unavailable;
 - exact authoritative source correctly identified but first read truncated;
 - exact source remains unrecoverable after bounded same-source retrieval;
 - stale memory conflicts with durable bootstrap truth;
 - short confirmation inherits a BRAIN-boundary action;
 - stable bootstrap changes after an epoch has already selected a release;
-- descriptive documentation claims a current mutable operational value that differs from its owning artifact.
+- descriptive documentation claims a current mutable operational value that differs from its owning artifact;
+- a historical/compatibility projection contradicts current release semantics;
+- wrapper transport is unavailable or ambiguous and O must explicitly choose the W fallback rather than silently resubmit.
 
 ## Promotion interpretation
 
 Passing this checklist supports activation judgment; it does not establish deterministic/fail-closed enforcement or statistically prove long-context reliability.
 
-If static parity exposes a material semantic regression, fix the shadow candidate before activation.
+If static parity or projection consistency exposes a material semantic regression, fix the candidate before activation.
