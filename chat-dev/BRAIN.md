@@ -47,6 +47,18 @@ Caller confidence does not waive A-E.
 
 Ordinary reversible exploration, research acceptance, prioritization, tentative/no-change recommendations and local reversible work do not require external review unless their actual effect independently meets A-E.
 
+### Reviewer terminal / O adjudication
+
+Reviewer authority and dependency state are distinct:
+
+- `REVIEW_PENDING` blocks only the dependent commitment while the required production Reviewer result is pending under the canonical Reasoning Brake contract.
+- A validated terminal `PASS` ends the Reviewer dependency and returns evidence to `O`; it is not approval authority. `O` still owns acceptance and commitment.
+- A validated terminal `CHALLENGE` also ends the Reviewer dependency, but immediately places the dependent commitment in `O_ADJUDICATE_REQUIRED`.
+- `O_ADJUDICATE_REQUIRED` is itself blocking: there is no direct `CHALLENGE -> COMMIT` path. `O` must explicitly accept the objection and revise, narrow, verify, or reject the objection on evidence, and must resolve any remaining decision-controlling uncertainty before commitment.
+- After terminal `CHALLENGE`, any continuing block comes from unresolved O adjudication / uncertainty, not from Reviewer veto or approval power.
+
+The Reviewer is an independent falsifier and evidence source only. It never grants or withholds O authority.
+
 ## Results
 
 Return only the minimum next-step guidance needed, such as:
