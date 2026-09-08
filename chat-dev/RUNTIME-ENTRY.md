@@ -11,9 +11,10 @@ This is a soft caller protocol backed by a private execution substrate. It does 
 For every `O` user turn:
 
 1. **Early cue, not first-action requirement.** If substantial context-expanding tool work is about to begin and the turn does not yet have a validated Runtime Entry result, prefer to obtain one first. Missing this early cue is recoverable; it is not itself a correctness failure.
-2. **Before consequential external effect.** A consequential external mutation/commitment must not execute before the current turn has a validated terminal Runtime Entry result plus every other required BRAIN / Mutation Lock / Reviewer / dependency control.
-3. **Before final delivery.** Before a final user-visible response, obtain a validated terminal Runtime Entry result for the current turn. If the result changes relevant control state, discard or recompute affected provisional pre-receipt reasoning before delivery.
-4. **Absolute-final marker.** The Runtime Entry marker is the final line of the assistant response. Nothing user-visible follows it.
+2. **Fresh-epoch overlap.** After stable bootstrap and the exact pinned `CALLER.md` are known, initiate the current turn's Runtime Entry as soon as the turn envelope is available. While the backend is pending, `O` should continue independent read-only bootstrap/rollover rehydration that does not depend on the receipt, then join the receipt before consequential effect or final delivery. Do not serialize harmless rehydration behind receipt latency merely for ceremony.
+3. **Before consequential external effect.** A consequential external mutation/commitment must not execute before the current turn has a validated terminal Runtime Entry result plus every other required BRAIN / Mutation Lock / Reviewer / dependency control.
+4. **Before final delivery.** Before a final user-visible response, obtain a validated terminal Runtime Entry result for the current turn. If the result changes relevant control state, discard or recompute affected provisional pre-receipt reasoning before delivery.
+5. **Absolute-final marker.** The Runtime Entry marker is the final line of the assistant response. Nothing user-visible follows it.
 
 Runtime Entry does not replace DIRECT/BRAIN route selection, Worker routing, Reviewer adjudication, Mutation Lock, or O authority.
 
