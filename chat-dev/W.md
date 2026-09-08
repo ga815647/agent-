@@ -72,13 +72,51 @@ Recovery rules:
 
 A task-local protocol may intentionally require single-call completeness only when that is a substantive evidence requirement rather than a transport convenience. Do not invent such a requirement merely because a first fetch was truncated.
 
-## Production transport compatibility
+## Production transport
 
-During the compatibility phase, normal Worker transport remains human-mediated:
+When O/BRAIN selects W, choose transport by the actual job boundary rather than by habit.
+
+### Wrapper-backed contributor lane — preferred when eligible
+
+Use the production Runtime Wrapper when all of the following hold:
+
+- the work is bounded cognition/reasoning/research synthesis that can complete from the supplied packet/context;
+- the packet is contributor-safe `PUBLIC`, `LOW_SENSITIVITY`, or `PUBLIC_OR_LOW_SENSITIVITY`;
+- W does not need arbitrary shell, connectors, mutations, privileged/private tools, or authority outside the supplied packet;
+- the private execution substrate is reachable.
+
+The production execution surface is private repo `ga815647/chatdev-exec`:
+
+- submit one typed request at `runtime-wrapper-v0/spark-requests/<request_id>.json` on `main`;
+- request schema: `runtime_wrapper_request_v0`, `op: spark_run`, with bounded `spark` task/context/acceptance/effort fields;
+- provider/model policy is owned by the private runtime; O/W must not broaden it from the public contract;
+- read the compact result at `runtime-wrapper-v0/results/<request_id>.json`;
+- preserve the returned raw-evidence pointer for O verification when material.
+
+Transport states:
+
+- `COMPLETE` — Worker evidence is available; O still owns acceptance/synthesis/commitment;
+- `AMBIGUOUS` — a durable dispatch exists without validated terminal evidence; **do not auto-resubmit**. O may re-check for terminal evidence or explicitly reroute;
+- `UNAVAILABLE` / `ERROR` — do not silently broaden scope or retry authority. Return/fallback to O under the existing route.
+
+The wrapper uses deterministic logical job identity and a durable create-only dispatch claim before provider execution. This is a duplicate-suppression/runtime-safety mechanism, not a transfer of Worker authority and not a universal exactly-once claim.
+
+### Human-mediated lane — required fallback / richer capability
+
+Use the existing human-mediated fresh Worker Chat when the job is:
+
+- private or otherwise outside contributor-safe packet classes;
+- tool-rich / connector-dependent / mutation-capable;
+- unsupported by the wrapper contract;
+- blocked by wrapper unavailability or an unresolved `AMBIGUOUS` state when O explicitly chooses rerouting.
+
+Human-mediated flow remains:
 
 O emits a compact routing header + ready-to-paste Worker prompt → user opens the intended fresh Worker Chat → user returns the complete Worker result → O validates/accepts evidence.
 
 Do not silently depend on retired automated fresh-Chat/browser/Windows Worker transport.
+
+Transport choice changes plumbing only. It does not change W scope, authority, evidence status, dependency semantics, or O's final acceptance/commitment authority.
 
 ## Release consistency
 
