@@ -14,7 +14,7 @@ GROUND -> ROUTE -> RECONSIDER
 
 The envelope must stop as early as possible. It must not create parallel reasoning lanes or visible ceremony.
 
-The separate turn-delivery / consequential-effect receipt invariant is owned by `chat-dev/RUNTIME-ENTRY.md` from the same `CONTROL_RELEASE`. It does not change the binary caller route.
+The separate turn-delivery / consequential-effect receipt invariant is owned by `chat-dev/RUNTIME-ENTRY.md` from the same `CONTROL_RELEASE`. It does not change the binary caller route. On a fresh epoch, load that interface immediately after this caller interface so current-turn Runtime Entry can overlap independent read-only rollover/bootstrap rehydration instead of being serialized behind it.
 
 ## 1. GROUND
 
