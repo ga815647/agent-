@@ -14,6 +14,8 @@ GROUND -> ROUTE -> RECONSIDER
 
 The envelope must stop as early as possible. It must not create parallel reasoning lanes or visible ceremony.
 
+The separate turn-delivery / consequential-effect receipt invariant is owned by `chat-dev/RUNTIME-ENTRY.md` from the same `CONTROL_RELEASE`. It does not change the binary caller route.
+
 ## 1. GROUND
 
 Use only the latest user turn and immediately relevant visible conversation trace already available to `O`.
@@ -113,10 +115,18 @@ The caller envelope must not:
 
 `O` retains Worker/Reviewer evidence acceptance, formal state transitions, commitments, and final synthesis. BRAIN/Worker/Reviewer/Mutation Lock/dependency authority semantics remain owned by their canonical contracts.
 
-## Final latch
+## Runtime receipt latch
 
-At the end of every final user-visible response under this interface, verify and append exactly:
+For every final user-visible response under this interface, load and obey `chat-dev/RUNTIME-ENTRY.md` from the same `CONTROL_RELEASE`.
 
-`[CONTROL LATCH｜NEXT: ROUTE first. FINAL: verify + re-append.]`
+The absolute final line must be exactly one of the states authorized by that interface:
 
-Missing the first-line binary route, executing before a required BRAIN load, or missing the final marker is an observable soft-latch consistency failure.
+- successful current-turn backend receipt: `[CHATDEV｜OK｜ID=<receipt>]`;
+- validated backend terminal error: `[CHATDEV｜ERROR｜ID=<failure_receipt>]`;
+- no validated terminal receipt at all: `[CHATDEV｜NO-RECEIPT]`.
+
+Only `OK` is compliant success. `ERROR` and `NO-RECEIPT` are observable turn-entry failures and do not authorize consequential external effects/commitments.
+
+Nothing user-visible may follow the Runtime Entry marker.
+
+Missing the first-line binary route, executing a required BRAIN boundary before BRAIN load, fabricating/reusing a receipt, or missing the required absolute-final Runtime Entry marker is an observable soft-latch consistency failure.
