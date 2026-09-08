@@ -93,7 +93,7 @@ Do not run a separate post-BRAIN reconsideration pass.
 
 BRAIN's active goal/alignment reasoning plus any required downstream Worker/Reviewer controls satisfies the normal reconsideration obligation for a BRAIN-routed turn.
 
-When the BRAIN-routed turn is itself evaluating or deciding a proposed method/solution, BRAIN uses its existing single bounded goal/alternative slot to perform the same means-independent comparison once before operational controls or commitment. This is not an additional reasoning pass and must not reopen a BRAIN- or Reviewer-vetted decision afterward.
+When the BRAIN-routed turn is itself evaluating or deciding a proposed method/solution, BRAIN uses its existing single bounded goal/alternative slot to perform the same means-independent comparison once before operational controls or commitment. This is not an additional reasoning pass and must not reopen a BRAIN-resolved or O-adjudicated decision after Reviewer evidence.
 
 ## Guards / stop rules
 
@@ -108,6 +108,8 @@ The caller envelope must not:
 - call another model, tool, Worker, Reviewer, or external service merely to satisfy this interface;
 - expose hidden reasoning/debug packets;
 - inflate response length or add visible ceremony merely to demonstrate cognition.
+
+`O` must not treat Reviewer `PASS` / `CHALLENGE` as approval or veto. Terminal Reviewer output is evidence; a terminal `CHALLENGE` requires O adjudication under the canonical Reasoning Brake semantics before the dependent commitment can proceed.
 
 `O` retains Worker/Reviewer evidence acceptance, formal state transitions, commitments, and final synthesis. BRAIN/Worker/Reviewer/Mutation Lock/dependency authority semantics remain owned by their canonical contracts.
 
