@@ -31,6 +31,22 @@ Confirm:
 - rollback target is recorded;
 - a release candidate is reviewed as an exact immutable diff before the stable selector is changed.
 
+## Repository ownership boundary
+
+This checklist validates projections of the already-active authority split; it does not create a second boundary authority.
+
+Confirm:
+
+- public `ga815647/agent-` owns cross-project Chat Dev **semantics**: bootstrap/release contracts, O/BRAIN/W authority/collaboration rules, Mutation Lock and Reasoning Brake semantics, and public-safe adoption/handoff guidance;
+- private `ga815647/chatdev-exec` owns the owner's **execution substrate and mutable execution state**: production Reviewer execution/policy, Runtime Wrapper and Runtime Entry transport, contributor-safe Spark execution, Restate runtime adapter/spine, routed mutation executor implementation, execution-local evidence, and validation tooling;
+- private execution artifacts implement public contracts and do not define, grant, remove, or override O/BRAIN/W authority or public control semantics;
+- public current-state prose does not duplicate private mutable machine values such as provider/model/output budgets, runtime endpoint/mailbox identifiers, runner-local settings, or other execution-local configuration when a live private owner exists;
+- Project Profiles contain only project-specific routing/authority/capability overlays and pointers, not copied global Chat Dev mechanics;
+- product/technical/current-progress truth remains in each project's canonical durable source rather than either global Chat Dev repo;
+- Notion dashboard/index pages and compatibility pages do not self-identify as global Chat Dev runtime authority after repo-centered activation.
+
+A repository path is not authoritative merely because it is public, private, on `main`, or machine-readable. Authority follows the active bootstrap/control contract and the explicit owner of each mutable execution value.
+
 ## Dynamic-state drift check
 
 Before promoting a release that references mutable operational state, confirm:
@@ -52,7 +68,8 @@ For compatibility, pilot, validation and other non-canonical projections:
 2. reject projections that self-identify as current authority when they are historical/compatibility only;
 3. reject obsolete bootstrap, route-visibility or Worker-transport assertions;
 4. reject copied mutable Reviewer/Worker runtime values presented as current truth;
-5. prefer a pointer to the active owner over duplicating prose when a projection no longer needs a full live copy.
+5. reject private execution documentation that narrows the execution plane to a retired subset when active production paths have expanded beyond it;
+6. prefer a pointer to the active owner over duplicating prose when a projection no longer needs a full live copy.
 
 ## Exact-source loading regression
 
@@ -92,10 +109,12 @@ When convenient or decision-relevant:
 - stable bootstrap changes after an epoch has already selected a release;
 - descriptive documentation claims a current mutable operational value that differs from its owning artifact;
 - a historical/compatibility projection contradicts current release semantics;
+- public documentation treats private mutable execution state as semantic authority;
+- private execution documentation claims authority over O/BRAIN/W semantics or omits active production execution surfaces in a way that misstates ownership;
 - wrapper transport is unavailable or ambiguous and O must explicitly choose the W fallback rather than silently resubmit.
 
 ## Promotion interpretation
 
 Passing this checklist supports activation judgment; it does not establish deterministic/fail-closed enforcement or statistically prove long-context reliability.
 
-If static parity or projection consistency exposes a material semantic regression, fix the candidate before activation.
+If static parity, ownership-boundary consistency or projection consistency exposes a material semantic regression, fix the candidate before activation.
