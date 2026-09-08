@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - production/public-projection-issue204-v0
+      - production/boundary-issue214-v0
   workflow_dispatch:
 
 permissions:
@@ -23,7 +24,6 @@ jobs:
         run: |
           python3 - <<'PY'
           from __future__ import annotations
-          import os
           import re
           import subprocess
           from pathlib import Path
@@ -44,6 +44,7 @@ jobs:
               'caller': show('chat-dev/CALLER.md'),
               'architecture': show('chat-dev/ARCHITECTURE.md'),
               'w': show('chat-dev/W.md'),
+              'readme': show('README.md'),
           }
 
           stale = [
@@ -56,6 +57,7 @@ jobs:
               ('P007', 'stage1', 'Use the existing private production reviewer lane and policy (`gpt-5.6-sol / low`).'),
               ('P008', 'validation', 'exact first-visible `ROUTE=DIRECT` / `ROUTE=BRAIN` caller line'),
               ('P009', 'validation', 'Worker authority limits and human-mediated transport'),
+              ('B001', 'readme', 'The private execution plane used by the repository owner for independent reviewer execution is separate'),
           ]
           failures = [pid for pid, key, needle in stale if needle in files[key]]
           assert not failures, f'stale projection assertions remain: {failures}'
@@ -68,6 +70,11 @@ jobs:
               ('R001', 'legacy', 'HISTORICAL / COMPATIBILITY PROJECTION — NON-CURRENT'),
               ('R002', 'stage1', 'Mutable production reviewer model and reasoning effort are owned by `ga815647/chatdev-exec/reviewer-policy.json`'),
               ('R003', 'validation', 'Worker authority limits and capability-selected transport under `W.md`'),
+              ('B101', 'readme', 'cross-project Chat Dev semantics and public-safe contracts'),
+              ('B102', 'readme', 'production execution substrate and mutable execution state'),
+              ('B103', 'readme', 'The private execution plane implements public contracts; it does not define or override O/BRAIN/W authority or public control semantics.'),
+              ('B104', 'validation', '## Repository ownership boundary'),
+              ('B105', 'validation', 'private execution artifacts implement public contracts and do not define, grant, remove, or override O/BRAIN/W authority or public control semantics'),
           ]
           missing = [cid for cid, key, needle in positives if needle not in files[key]]
           assert not missing, f'positive projection checks missing: {missing}'
