@@ -52,7 +52,7 @@ A short confirmation such as `好`, `可以`, `go`, `改吧`, or `做` inherits 
 
 An exception-only `O` sanity correction is allowed only when the route result is missing/malformed or directly contradicts explicit visible boundary evidence under the same unchanged binary route rules. A correction is a concrete caller-routing error, not a second normal route pass.
 
-For every `O` turn, the first assistant-visible line before task execution or task tool calls must reflect the selected route and be exactly one of the two route lines above.
+Route selection is internal control state. Do not emit `ROUTE=DIRECT` or `ROUTE=BRAIN` merely to demonstrate protocol compliance. User-visible route text is optional only when it is substantively useful to explain a routing/delegation decision.
 
 `ROUTE=BRAIN` is not compliance by itself. Before task execution across that boundary, load `chat-dev/BRAIN.md` from the same `CONTROL_RELEASE`. If BRAIN selects `W`, load `chat-dev/W.md` from the same release.
 
@@ -129,4 +129,4 @@ Only `OK` is compliant success. `ERROR` and `NO-RECEIPT` are observable turn-ent
 
 Nothing user-visible may follow the Runtime Entry marker.
 
-Missing the first-line binary route, executing a required BRAIN boundary before BRAIN load, fabricating/reusing a receipt, or missing the required absolute-final Runtime Entry marker is an observable soft-latch consistency failure.
+Failing to select/apply the required internal route, executing a required BRAIN boundary before BRAIN load, fabricating/reusing a receipt, or missing the required absolute-final Runtime Entry marker is an observable soft-latch consistency failure.
