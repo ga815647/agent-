@@ -111,12 +111,18 @@ A required Worker or production Reviewer dependency blocks only its dependent ac
 
 External mutation remains read-only until the intended effect, target resource type and exact target identity/destination are bound under Mutation Lock.
 
-Worker transport is capability-selected under `W.md`:
+Worker execution is capability-selected under `W.md`:
 
-- eligible cognition-only contributor-safe bounded jobs prefer the private Runtime Wrapper typed transport;
-- private, tool-rich, unsupported, wrapper-unavailable, or explicitly rerouted jobs use the human-mediated fresh Worker Chat path;
+- freeze the bounded Worker contract, data-handling class, residual required capability set, and existing effect/authority boundary before executor selection;
+- choose only an executor whose current evidence/policy proves it eligible for the full frozen requirement set;
+- provider/model/transport identity is implementation plumbing and never grants W authority;
+- trusted preprocessing/hydration may satisfy an input dependency without granting its credential/connector/mutation authority to W, but it must preserve provenance and actual data sensitivity;
+- fallback/reroute may substitute only another independently eligible executor under the same frozen contract; transport failure never creates capability escalation;
+- if no eligible executor exists, return to O for narrowing, decomposition, explicit new bounded authorization, or a separately verified manual path;
 - transport choice changes plumbing only and does not change W authority, evidence status, dependency semantics, or O's final acceptance/commitment authority;
 - a wrapper dispatch with durable claim but no validated terminal evidence is `AMBIGUOUS` and must not auto-resubmit.
+
+Current executor/provider/adapter availability and capability evidence are mutable operational state owned by the active instance/project implementation; this architecture does not hard-code one owner-specific executor ladder.
 
 ### Exact-source retrieval robustness
 
