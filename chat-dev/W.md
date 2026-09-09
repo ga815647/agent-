@@ -94,7 +94,7 @@ A trusted non-Worker adapter may satisfy an input/source dependency before Worke
 
 - it does not grant the Worker the adapter's credential, connector, or mutation authority;
 - source identity/provenance remains recoverable;
-- the resulting packet still satisfies its data-handling policy;
+- the resulting packet is classified from the actual hydrated content and remains admissible under the selected executor's data-handling policy; hydration does not silently downgrade sensitivity;
 - the adapter does not silently reinterpret source content as control instructions;
 - the remaining Worker job is still the same bounded objective/authority envelope.
 
@@ -102,9 +102,22 @@ Example class: an exact source may be read outside W and supplied as provenance-
 
 Adapters change the residual capability requirement, not W authority.
 
+### Executor capability evidence
+
+This public interface does not require any particular registry implementation, repository, provider, or transport.
+
+Current executor eligibility may be established by an instance-local capability registry/policy, by directly verified current runtime/tool capability, or by equivalent durable evidence supplied by the active instance/project. Whatever evidence source is used:
+
+- it is operational evidence/state, not semantic authority;
+- it must distinguish proven/available capability from candidate/unproven capability;
+- mutable provider/model/location/configuration values remain owned by that instance's operational source;
+- if eligibility cannot be established for the frozen requirements, do not guess it.
+
+A private JSON registry is one valid implementation. A different deployment may use another registry, a runtime API, project-local durable configuration, or direct human-mediated capability verification without changing this public W contract.
+
 ### Executor eligibility
 
-An executor is eligible only when current instance evidence/policy establishes all of the following:
+An executor is eligible only when current evidence/policy establishes all of the following:
 
 1. it is currently available for production use rather than merely proposed/candidate/unproven;
 2. its data policy admits the packet;
@@ -133,13 +146,11 @@ If no other eligible executor exists, return to O. O may re-check evidence, narr
 
 Never implement a blind provider ladder such as `Spark → Codex → Chat` when later executors require capabilities or authority absent from the original job.
 
-## Current owner-instance transport compatibility
+## Transport compatibility
 
-The current owner instance keeps mutable executor/adapter eligibility evidence at private `ga815647/chatdev-exec` → `runtime-wrapper-v0/worker-capability-registry.json`. Resolve that registry only when executor selection needs it; do not copy its mutable contents into this public interface.
+An active instance may implement capability-eligible W execution through a typed wrapper, a local/remote engineering executor, a human-mediated fresh Worker Chat, or another bounded transport. The public rules above remain unchanged.
 
-Mutable executor availability, provider/model choice, exact execution paths and capability evidence are private runtime policy/state, not cross-project W semantics. If the registry is inaccessible, stale, or does not prove an executor eligible for the frozen job requirements, do not guess an executor capability; return to O or use a separately verified transport.
-
-For the currently proven contributor-safe cognition path, the production Runtime Wrapper uses a typed `spark_run` request/result flow in the private execution repo. Its terminal states retain their existing meanings:
+For a typed wrapper transport, terminal states keep their ordinary evidence meanings:
 
 - `COMPLETE` — Worker evidence is available; O still owns acceptance/synthesis/commitment;
 - `AMBIGUOUS` — durable dispatch exists without validated terminal evidence; **do not auto-resubmit**;
