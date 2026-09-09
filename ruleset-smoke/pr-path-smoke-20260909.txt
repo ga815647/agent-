@@ -1,1 +1,0 @@
-Temporary ruleset smoke sentinel. This file is intentionally merged through PR and then removed through a cleanup PR.
