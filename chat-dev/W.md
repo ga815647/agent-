@@ -135,7 +135,9 @@ Never implement a blind provider ladder such as `Spark → Codex → Chat` when 
 
 ## Current owner-instance transport compatibility
 
-The current owner instance may expose private executor/adapter state through `ga815647/chatdev-exec`. Mutable executor availability, provider/model choice, exact execution paths and capability evidence are private runtime policy/state, not cross-project W semantics.
+The current owner instance keeps mutable executor/adapter eligibility evidence at private `ga815647/chatdev-exec` → `runtime-wrapper-v0/worker-capability-registry.json`. Resolve that registry only when executor selection needs it; do not copy its mutable contents into this public interface.
+
+Mutable executor availability, provider/model choice, exact execution paths and capability evidence are private runtime policy/state, not cross-project W semantics. If the registry is inaccessible, stale, or does not prove an executor eligible for the frozen job requirements, do not guess an executor capability; return to O or use a separately verified transport.
 
 For the currently proven contributor-safe cognition path, the production Runtime Wrapper uses a typed `spark_run` request/result flow in the private execution repo. Its terminal states retain their existing meanings:
 
