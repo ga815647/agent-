@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import json
 import unittest
+from copy import deepcopy
 from pathlib import Path
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "turn_entry.py"
@@ -64,6 +65,14 @@ class TurnEntryTests(unittest.TestCase):
         ).encode("utf-8")
         expected = hashlib.sha256(canonical).hexdigest()
         self.assertEqual(entry["turn_envelope_sha256"], expected)
+
+    def test_run_does_not_mutate_private_transport_request(self) -> None:
+        request = self.request()
+        original = deepcopy(request)
+        result = turn_entry.run(request)
+
+        self.assertEqual(request, original)
+        self.assertNotIn("deployment", result)
 
     def test_unsupported_schema_returns_terminal_error(self) -> None:
         request = self.request()
