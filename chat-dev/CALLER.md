@@ -16,6 +16,15 @@ The envelope must stop as early as possible. It must not create parallel reasoni
 
 The separate turn-delivery / consequential-effect receipt invariant is owned by `chat-dev/RUNTIME-ENTRY.md` from the same `CONTROL_RELEASE`. It does not change the binary caller route. On a fresh epoch, load that interface immediately after this caller interface so current-turn Runtime Entry can overlap independent read-only rollover/bootstrap rehydration instead of being serialized behind it.
 
+### Per-turn Runtime Entry preflight
+
+For **every O user turn**, treat current-turn Runtime Entry initiation as an early caller preflight rather than an end-of-response cleanup step.
+
+- If the turn does not yet have a validated current-turn Runtime Entry result, initiate the current-turn request as soon as the turn envelope is available and before substantial context-expanding tool work when practical.
+- Do not serialize harmless independent read-only work behind receipt latency; the request may complete in parallel and is joined before any consequential external effect and before final delivery.
+- If no current-turn request was ever initiated, do not treat that omission itself as evidence of backend unavailability. Attempt/initiate the request before selecting `NO-RECEIPT`.
+- This preflight restates the same-release `RUNTIME-ENTRY.md` obligation for caller salience only. It does not create a platform interceptor, deterministic latch, new actor, new authority, or stronger success claim.
+
 ## 1. GROUND
 
 Use only the latest user turn and immediately relevant visible conversation trace already available to `O`.
