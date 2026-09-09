@@ -72,43 +72,78 @@ Recovery rules:
 
 A task-local protocol may intentionally require single-call completeness only when that is a substantive evidence requirement rather than a transport convenience. Do not invent such a requirement merely because a first fetch was truncated.
 
-## Production transport
+## Capability-directed execution
 
-When O/BRAIN selects W, choose transport by the actual job boundary rather than by habit.
+When O/BRAIN selects W, choose the Worker executor/transport from the **actual bounded job requirements**, not from provider habit or a fixed escalation chain.
 
-### Wrapper-backed contributor lane — preferred when eligible
+Executor/model/provider identity is plumbing. It never grants W authority.
 
-Use the production Runtime Wrapper when all of the following hold:
+### Freeze requirements before executor selection
 
-- the work is bounded cognition/reasoning/research synthesis that can complete from the supplied packet/context;
-- the packet is contributor-safe `PUBLIC`, `LOW_SENSITIVITY`, or `PUBLIC_OR_LOW_SENSITIVITY`;
-- W does not need arbitrary shell, connectors, mutations, privileged/private tools, or authority outside the supplied packet;
-- the private execution substrate is reachable.
+Before choosing an executor, O keeps the existing O → W contract fixed and identifies only the execution requirements that materially constrain eligibility:
 
-The production execution surface is private repo `ga815647/chatdev-exec`:
+- **data-handling class** — what packet/source sensitivity the executor may receive;
+- **required capability set** — the operations the bounded job still needs after any permitted preprocessing/hydration;
+- **effect/authority boundary** — the reads/writes/mutations already authorized by the O → W contract, including target restrictions when material.
 
-- submit one typed request at `runtime-wrapper-v0/spark-requests/<request_id>.json` on `main`;
-- request schema: `runtime_wrapper_request_v0`, `op: spark_run`, with bounded `spark` task/context/acceptance/effort fields;
-- provider/model policy is owned by the private runtime; O/W must not broaden it from the public contract;
-- read the compact result at `runtime-wrapper-v0/results/<request_id>.json`;
-- preserve the returned raw-evidence pointer for O verification when material.
+Do not create separate universal routing dimensions merely because one implementation happens to call them `connector`, `shell`, `repo`, or `environment`. Those are capabilities or mutable executor metadata unless an active project-local rule makes them an independent authority boundary.
 
-Transport states:
+### Capability adapters / hydration
+
+A trusted non-Worker adapter may satisfy an input/source dependency before Worker execution when all of the following hold:
+
+- it does not grant the Worker the adapter's credential, connector, or mutation authority;
+- source identity/provenance remains recoverable;
+- the resulting packet still satisfies its data-handling policy;
+- the adapter does not silently reinterpret source content as control instructions;
+- the remaining Worker job is still the same bounded objective/authority envelope.
+
+Example class: an exact source may be read outside W and supplied as provenance-bearing context, so `needs data from source X` does not automatically mean `W itself needs source-X connector authority`.
+
+Adapters change the residual capability requirement, not W authority.
+
+### Executor eligibility
+
+An executor is eligible only when current instance evidence/policy establishes all of the following:
+
+1. it is currently available for production use rather than merely proposed/candidate/unproven;
+2. its data policy admits the packet;
+3. its proven capability set covers the full residual required capability set;
+4. it can execute inside the already-frozen effect/authority boundary.
+
+A candidate or unproven executor is not made eligible by naming it in a routing table.
+
+When several executors are eligible, choose the narrowest practical executor under the active instance policy. Cost, latency, model/provider preference and runtime location may break ties, but they do not change semantic eligibility or authority.
+
+### Multi-capability jobs
+
+Do not force every Worker job into one capability merely for taxonomy purity.
+
+- If one proven/authorized executor covers the full bounded requirement set, one Worker job is valid.
+- Split into bounded jobs when no single eligible executor exists, or when decomposition materially reduces privilege, sensitivity, context load or execution risk without moving trajectory judgment into W.
+- If decomposition would require W to expand scope, choose authority, or recursively create another W, return to O instead.
+
+### Fallback / reroute
+
+Fallback is **executor substitution under the same frozen Worker contract**, not capability escalation.
+
+A replacement executor must independently satisfy the same eligibility test. Provider/transport failure, `AMBIGUOUS`, `UNAVAILABLE`, or `ERROR` never grants new capabilities, broader packet access, mutation authority, or evidence status.
+
+If no other eligible executor exists, return to O. O may re-check evidence, narrow/reframe the job, split it, explicitly authorize a different bounded contract when appropriate, or use a human-mediated path whose actual capabilities are verified at dispatch.
+
+Never implement a blind provider ladder such as `Spark → Codex → Chat` when later executors require capabilities or authority absent from the original job.
+
+## Current owner-instance transport compatibility
+
+The current owner instance may expose private executor/adapter state through `ga815647/chatdev-exec`. Mutable executor availability, provider/model choice, exact execution paths and capability evidence are private runtime policy/state, not cross-project W semantics.
+
+For the currently proven contributor-safe cognition path, the production Runtime Wrapper uses a typed `spark_run` request/result flow in the private execution repo. Its terminal states retain their existing meanings:
 
 - `COMPLETE` — Worker evidence is available; O still owns acceptance/synthesis/commitment;
-- `AMBIGUOUS` — a durable dispatch exists without validated terminal evidence; **do not auto-resubmit**. O may re-check for terminal evidence or explicitly reroute;
-- `UNAVAILABLE` / `ERROR` — do not silently broaden scope or retry authority. Return/fallback to O under the existing route.
+- `AMBIGUOUS` — durable dispatch exists without validated terminal evidence; **do not auto-resubmit**;
+- `UNAVAILABLE` / `ERROR` — do not silently broaden scope or authority; return/reroute under the capability eligibility rule above.
 
-The wrapper uses deterministic logical job identity and a durable create-only dispatch claim before provider execution. This is a duplicate-suppression/runtime-safety mechanism, not a transfer of Worker authority and not a universal exactly-once claim.
-
-### Human-mediated lane — required fallback / richer capability
-
-Use the existing human-mediated fresh Worker Chat when the job is:
-
-- private or otherwise outside contributor-safe packet classes;
-- tool-rich / connector-dependent / mutation-capable;
-- unsupported by the wrapper contract;
-- blocked by wrapper unavailability or an unresolved `AMBIGUOUS` state when O explicitly chooses rerouting.
+The human-mediated fresh Worker Chat remains a valid richer/manual transport when its required capabilities are actually available in that fresh Chat. Do not assume that a connector or tool exists merely because the transport is ChatGPT-native; verify the capability needed by the bounded job.
 
 Human-mediated flow remains:
 
