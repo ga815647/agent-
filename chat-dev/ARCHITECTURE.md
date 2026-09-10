@@ -34,21 +34,30 @@ The Project Instructions shim exists because the runtime entry cannot bootstrap 
 ## 3. Authority ownership
 
 ### Public `ga815647/agent-`
-Owns cross-project Chat Dev control semantics and public-safe contracts:
+Owns cross-project Chat Dev control semantics, public-safe contracts, and public-safe runtime implementation families whose source ownership has been explicitly promoted here, including:
 
 - runtime caller-entry semantics;
 - current control release selection;
 - stable caller/BRAIN/W interfaces;
 - architecture/collaboration invariants;
 - Mutation Lock and public Reasoning Brake semantics;
-- handoff/adoption/Project Instructions authoring guidance.
+- handoff/adoption/Project Instructions authoring guidance;
+- public-safe Runtime Entry implementation/tests;
+- public-safe mutation PREPARE implementation/tests.
+
+A public source commit and an active `CONTROL_RELEASE` are distinct identities. Public-safe executable source may be deployed by exact immutable source SHA without that deployment SHA becoming the active control release.
 
 ### Private `ga815647/chatdev-exec`
-Owns private execution substrate and operational evidence plumbing, including:
+Owns private deployment/execution substrate, private mutable operational state, secret-sensitive glue and operational evidence plumbing, including:
 
 - production Reviewer execution substrate, reviewer policy and private reviewer results;
-- Runtime Wrapper implementation for bounded snapshot/read aggregation, mutation PREPARE, and contributor-safe Spark W execution;
+- Runtime Wrapper transport, bounded snapshot/read aggregation, contributor-safe Spark execution plumbing, and private exact-source deployment pointers/projections for public Runtime Entry and mutation PREPARE;
+- private online/external execution adapters and their machine-consumed deployment/capability state;
+- Restate-backed runtime-spine state where that path is actually used;
+- routed hard Mutation Gate/live-adapter implementation for the supported subset;
 - execution-local/durable dispatch state and raw/compact execution evidence produced by those paths.
+
+A byte-identical private deployed projection of a public-safe source family is not a second source owner. Private deployment/source pointers are operational state and remain independent of public `CONTROL_RELEASE` unless a specific public contract explicitly binds them.
 
 Private execution artifacts implement public contracts but never override public authority/control semantics. Execution evidence/state is not automatically canonical project truth; O retains acceptance/promotion authority under the active public contract.
 
@@ -77,6 +86,10 @@ Rules:
 For the current private Reviewer path, `ga815647/chatdev-exec/reviewer-policy.json` is the live authority for production reviewer model and reasoning effort because the production workflow consumes it. Public Reasoning Brake docs own reviewer **semantics**, not the mutable model/effort value.
 
 For the Runtime Wrapper contributor lane, the active private workflow/adapter owns mutable provider/model/output-budget/runtime configuration because that execution path consumes it. Public `W.md` owns Worker eligibility, transport/fallback semantics, authority boundaries and evidence status; it must not duplicate mutable private runtime settings as current truth.
+
+For public-source/private-deploy runtime families, the private machine-consumed deployment manifest owns the exact deployed source selection. The public repository owns the implementation source and tests; the manifest's deployed source SHA does not become `CONTROL_RELEASE`.
+
+For bounded private execution bridges/adapters, the active private machine-consumed deployment/capability artifact owns owner-specific adapter availability and accepted operational limitations. Public architecture describes the authority boundary, not a copied current adapter matrix.
 
 This rule prevents descriptive documentation from becoming a competing, silently stale current-state copy.
 
@@ -154,26 +167,25 @@ The stable bootstrap pointer is the intentionally mutable current-entry surface.
 
 See `RELEASE-CONTRACT.md`.
 
-## 6. Compatibility with existing public docs
+## 6. Compatibility and historical migration material
 
-Before repo-centered activation, the existing production files remain authoritative for Projects still bootstrapped through v29 Notion Current.
+`chat-dev/` is the current repo-centered control entry/interface layer for Projects whose active Project Instructions load repo `BOOTSTRAP.md`. Detailed module contracts that remain useful, including Mutation Lock and Reasoning Brake, stay in their existing module directories and are pinned by `CONTROL_RELEASE`.
 
-After activation, compatibility policy is:
+Historical migration/activation documents may preserve v29, mixed-mode rollout, shadow-candidate, or rollback-window details. They are provenance/compatibility material unless a current contract explicitly grants them an active role; they are not co-equal current runtime entry authorities.
 
-- `chat-dev/` is the current control entry/interface layer for migrated Projects;
-- `chat-dev/CALLER.md` is the current release-pinned caller cognition interface;
-- detailed module contracts that remain useful, including Mutation Lock and Reasoning Brake, stay in their existing module directories and are pinned by `CONTROL_RELEASE`;
-- `chat-dev-control-plane-v0/ARCHITECTURE.md` must not remain a competing current architecture authority; after the rollback window it becomes a compatibility pointer or historical baseline;
-- `BRAIN-AUTO-PILOT.md` may remain the detailed BRAIN implementation contract while `chat-dev/BRAIN.md` is the stable interface, but its caller-entry semantics must defer to `CALLER.md` from the same release;
-- no old production file is deleted merely for cosmetic cleanup.
+`chat-dev-control-plane-v0/ARCHITECTURE.md` is a compatibility/historical projection and must not compete with this architecture. `BRAIN-AUTO-PILOT.md` may remain a detailed BRAIN module contract while `chat-dev/BRAIN.md` is the stable interface, but its caller-entry semantics defer to `CALLER.md` from the same release.
 
-See `COMPATIBILITY.md`.
+No old file is deleted merely for cosmetic cleanup. Archive/retire only after its active/non-active role is proven and useful provenance is preserved.
 
-## 7. Notion after activation
+See `COMPATIBILITY.md` for migration lineage.
+
+## 7. Notion and project-local durable state
 
 The goal is not to replace Notion globally.
 
-`Chat Dev Durable` remains useful as a human dashboard/index. `Chat Dev｜Current`, `Chat Dev｜BRAIN`, `Chat Dev｜W` and the Handoff guide remain intact while any Project still depends on v29 or while they are the active rollback source. Only after the rollback window closes should they become pointer-only compatibility pages or history/archive.
+Notion may remain a human dashboard/index and may host private/project-local state where a Project explicitly points to it. A repo-centered Project does not treat legacy Notion Chat Dev control pages as co-equal global runtime authority with repo `BOOTSTRAP.md`.
+
+If a Project intentionally uses an approved legacy bootstrap path, that Project's explicit bootstrap kernel defines its authority; do not infer global current authority from the continued existence of old Notion pages.
 
 Project Profiles remain private/project-local by default.
 
@@ -185,12 +197,12 @@ Harmless ordinary conversation may continue only when it does not require curren
 
 This is a behavioral rule, not deterministic fail-closed enforcement.
 
-## 9. Activation boundary
+## 9. Activation / promotion boundary
 
-Publishing these files to the repository does not by itself change a Project's runtime authority.
+Publishing files to repository `main` does not by itself change an already-running epoch's release-pinned runtime authority.
 
-A Project enters repo-centered control when its active Project Instructions bootstrap loads repo `chat-dev/BOOTSTRAP.md`, which then selects an immutable `CONTROL_RELEASE` and loads `CALLER.md` from that release.
+A repo-centered Project enters through its active Project Instructions bootstrap, which loads repo `chat-dev/BOOTSTRAP.md`; that stable entry selects an immutable `CONTROL_RELEASE` and loads `CALLER.md` from the same release.
 
 Changing the stable bootstrap selector, changing a Project's bootstrap kernel, demoting an existing production authority, or otherwise promoting canonical/control semantics is a hard-effect transition and uses the normal BRAIN / independent-review path.
 
-See `ACTIVATION.md` and `MIGRATION.md`.
+Historical activation/migration steps remain available in `ACTIVATION.md` and `MIGRATION.md` for provenance and rollback lineage; they are not current runtime entry authority.
