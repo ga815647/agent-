@@ -4,7 +4,7 @@ Status: PROMOTED WITH BACKEND SUBSTITUTION / HISTORICAL CANDIDATE
 Date staged: 2026-09-02
 Promotion date: 2026-09-03
 
-This file records the candidate that drove the production simplification. The active truth is now `chat-dev-control-plane-v0/ARCHITECTURE.md`, `reasoning-brake-v0/RUNTIME.md`, and `Chat Dev｜Current`.
+This file records the candidate that drove the production simplification. It is historical evidence, not current runtime authority. For current repo-centered runtime authority, start at `chat-dev/BOOTSTRAP.md` and follow its exact `CONTROL_RELEASE`; current architecture is `chat-dev/ARCHITECTURE.md` from that release.
 
 ## Promoted parts
 

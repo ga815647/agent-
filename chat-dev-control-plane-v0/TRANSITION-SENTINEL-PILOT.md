@@ -71,6 +71,8 @@ The Sentinel pilot intended to observe only naturally occurring sentinel-relevan
 
 Its planned first-10 checkpoint is retired with the pilot and should not be combined with the BRAIN pilot count.
 
-## Relationship to the frozen baseline
+## Relationship to current control
 
-`chat-dev-control-plane-v0/ARCHITECTURE.md`, `reasoning-brake-v0/RUNTIME.md`, `reasoning-brake-v0/STAGE1-PILOT.md`, and `chat-dev-control-plane-v0/MUTATION-LOCK.md` remain authoritative for their existing semantics. Retiring this file retires only the Sentinel caller cue, not those underlying controls.
+This file has no current caller authority. For current repo-centered runtime authority, start at `chat-dev/BOOTSTRAP.md` and follow its exact `CONTROL_RELEASE`; caller routing and architecture come from `chat-dev/CALLER.md` and `chat-dev/ARCHITECTURE.md` at that release.
+
+The underlying controls referenced by this historical pilot remain active only through the current release-pinned contracts that explicitly own them, including `reasoning-brake-v0/STAGE1-PILOT.md` and `chat-dev-control-plane-v0/MUTATION-LOCK.md` when their current trigger conditions apply.
