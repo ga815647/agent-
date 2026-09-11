@@ -176,6 +176,8 @@ Transport choice changes plumbing only. It does not change W scope, authority, e
 - A short bounded W dependency needed for the current user turn is normally joined to a terminal state before O gives the final answer. A pending dispatch is not accepted evidence and is not completion. Liveness expiry, actual unavailability, an independent user status request, or a dependency that is no longer needed are exceptions.
 - Pure transport/output failure by itself is not semantic evidence requiring `FRESH_W_AUDIT`. Use fresh independence only when framing, root cause, architecture/security/API/schema semantics, tests-as-spec, or prior Worker reasoning is materially uncertain.
 
+> **SAME_W — transport vs semantic:** `worker_result.status=RETURN_TO_O` is a Worker semantic decision under frozen authority and SHALL NOT be emitted merely for response length/transport inconvenience. `terminal_status=UNAVAILABLE / reason=TRUNCATED` is a transport-layer terminal that returns control to O for transport adjudication only; it is NOT Worker semantic RETURN_TO_O, NOT W completion, and NOT user-turn completion. O must still satisfy the current-turn dependency: retrieve durable artifact if present, use only bounded continuation/recovery if genuinely supported and safe, or reroute/reframe under same frozen authority. No blind full-job resubmit; no geometric token-budget retry.
+
 ### SAME_W_REWORK — continuation / early-return rule
 
 - SAME_W_REWORK is continuation affinity/lineage under fixed spec, not a claim of native persistent session; if native resume is unavailable/lost, reconstructed continuation from the #273 minimal handoff is valid but must not be called same-session.
