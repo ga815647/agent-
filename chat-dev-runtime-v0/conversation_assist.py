@@ -83,4 +83,4 @@ def legacy_request(context, request_id, packet_class):
     return {"schema_version": "runtime_wrapper_request_v0", "request_id": request_id, "op": "spark_run", "spark": {
         "packet_class": packet_class, "task": PROMPT,
         "context": canonical(context), "acceptance": ["Return the requested conversational JSON as the answer; cite only supplied message IDs. No execution or authorization."],
-        "reasoning_effort": "low", "max_output_tokens": 1600}}
+        "reasoning_effort": "low", "max_output_tokens": 4096}}
