@@ -166,6 +166,16 @@ Do not silently depend on retired automated fresh-Chat/browser/Windows Worker tr
 
 Transport choice changes plumbing only. It does not change W scope, authority, evidence status, dependency semantics, or O's final acceptance/commitment authority.
 
+### Artifact transport / truncation / join
+
+- Persist implementation through a workspace, candidate ref, or durable artifact channel when one is available.
+- Normal model output is a compact control receipt — terminal state, `candidate_ref`/`result_ref`, `changed_paths`, validation/tests, and a minimal note — not full source transport.
+- Returning full code in model text is exception-only: the artifact must be trivially small and no durable artifact channel may be available.
+- `finish_reason=length` / `TRUNCATED` must not trigger an automatic larger-budget retry. Return to O, which may retrieve an already-durable artifact, request a bounded continuation when the protocol genuinely supports it, narrow/reframe the job, or select another eligible executor.
+- At most one retry may be explicitly authorized by O when its expected total cost is lower than the alternatives and there is no duplicate-effect risk. Geometric or open-ended output-budget retry is not the default.
+- A short bounded W dependency needed for the current user turn is normally joined to a terminal state before O gives the final answer. A pending dispatch is not accepted evidence and is not completion. Liveness expiry, actual unavailability, an independent user status request, or a dependency that is no longer needed are exceptions.
+- Pure transport/output failure by itself is not semantic evidence requiring `FRESH_W_AUDIT`. Use fresh independence only when framing, root cause, architecture/security/API/schema semantics, tests-as-spec, or prior Worker reasoning is materially uncertain.
+
 ## Release consistency
 
 When W is part of a repo-centered epoch, Chat Dev public control documents it reads must use the same `CONTROL_RELEASE` selected by `BOOTSTRAP.md`, unless the task's exact project-local authority explicitly points elsewhere.
