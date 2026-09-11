@@ -1,6 +1,6 @@
-# Conversational assistance candidate
+# Conversational assistance — release-controlled optional interface
 
-Status: opt-in candidate, not selected by CONTROL_RELEASE. This supersedes the mobile-Codex product target in the Remote Studio proposal; useful existing task mechanics remain available.
+Status: release-controlled optional interface. Repository presence or source merge alone does not activate it; it is active only when referenced by the selected `CONTROL_RELEASE`. This supersedes the mobile-Codex product target in the Remote Studio proposal; useful existing task mechanics remain available.
 
 The current goal is better conversational understanding and useful execution within available capability: less waiting, less reflexive agreement, and less attachment to the assistant's own previous framing. A complete remote development platform, autonomous reviewer, new phone UI, and general-purpose background worker are not prerequisites for incremental conversational improvement.
 
@@ -16,7 +16,7 @@ The remote adviser returns an interpretation, current goal, evidence IDs and one
 
 The public-safe `chat-dev-runtime-v0/conversation_assist.py` exports the existing Runtime Wrapper `spark_run` request shape. This does not add a new service or change the old transport's data eligibility. Private execution can also run a bounded direct model probe with its owner policy. Transport adapters and credentials remain private.
 
-Use acknowledged existing job identity for long work. Perform independent useful work while pending. Do not start another identical request because a chat wait expired. If a second opinion misses the caller's interaction budget, state that it is pending/unavailable and give only a provisional answer supported by available evidence; unresolved consequential actions remain paused. Do not pretend a remote review completed. Existing Runtime Entry receipt obligations remain independently effective until O accepts a separate change; this candidate cannot promise to remove that source of waiting.
+Use acknowledged existing job identity for long work. Perform independent useful work while pending. Do not start another identical request because a chat wait expired. If a second opinion misses the caller's interaction budget, state that it is pending/unavailable and give only a provisional answer supported by available evidence; unresolved consequential actions remain paused. Do not pretend a remote review completed. Existing Runtime Entry receipt obligations remain independently effective until O accepts a separate change; this interface cannot promise to remove that source of waiting.
 
 Bind advice to the exact conversation identity, revision and content hash. A newer message invalidates the older advice; a late result is historical evidence, not the answer to the latest message. Use one bounded answer, not recursive advisers or repeated polling until agreement.
 
@@ -24,4 +24,4 @@ Bind advice to the exact conversation identity, revision and content hash. A new
 
 Evaluate actual interpretations and responses for tentative suggestions, explicit goal replacement, corrections to assistant claims, short confirmations, real ambiguity, and clearly settled decisions. Record latency and unavailable results. Structural validation is not proof of understanding; a few live examples are evidence for those examples only. No challenge-count or reasoning-length target.
 
-Promotion is separate: O must accept the caller/control change before it becomes active Chat behavior. No source merge alone selects this protocol.
+Activation is selected by `CONTROL_RELEASE` after O acceptance. A source merge alone does not select this protocol.
