@@ -4,7 +4,7 @@ Status: proposal plus implementation candidate. Not selected by BOOTSTRAP or CON
 
 ## Goal
 
-A mobile project conversation can hand off work without keeping a desktop or a chat turn alive. Heavy task interpretation and implementation can run remotely. The system remains loyal to the user's goal rather than conversational momentum, and surfaces a material challenge instead of reflexive agreement.
+The owner revised the product target: improve Chat's understanding, responsiveness and resistance to conversational momentum, doing useful work within available capability. A full mobile Codex experience is no longer the acceptance criterion. See `CONVERSATION-ASSIST-CANDIDATE.md` for the immediate caller integration. Existing durable task mechanics below remain optional support for longer work, not prerequisites for improving conversation.
 
 ## Responsibilities
 
