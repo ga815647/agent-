@@ -44,7 +44,7 @@ def packet(session_id, revision, messages, prior_goal=""):
     result = {"session_id": session_id, "revision": revision, "prior_goal": prior_goal, "messages": messages}
     if len(canonical(result).encode()) > 24000:
         raise ValueError("context too large; select relevant original messages explicitly")
-    return result
+    return json.loads(canonical(result))  # Freeze caller-owned lists before dispatch.
 
 
 def fingerprint(value):

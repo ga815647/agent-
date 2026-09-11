@@ -11,6 +11,12 @@ class ConversationTests(unittest.TestCase):
     def test_original_messages_preserved(self):
         self.assertEqual(self.context["messages"][-1]["text"], "好")
 
+    def test_packet_does_not_alias_mutable_caller_history(self):
+        messages = [{"id": "u", "role": "user", "text": "先檢查"}]
+        context = packet("s", 1, messages)
+        messages[0]["text"] = "立即部署"
+        self.assertEqual(context["messages"][0]["text"], "先檢查")
+
     def test_same_revision_different_messages_cannot_reuse_advice(self):
         result = validate(self.answer, self.context)
         changed = copy.deepcopy(self.context)
