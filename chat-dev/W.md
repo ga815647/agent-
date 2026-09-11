@@ -176,6 +176,14 @@ Transport choice changes plumbing only. It does not change W scope, authority, e
 - A short bounded W dependency needed for the current user turn is normally joined to a terminal state before O gives the final answer. A pending dispatch is not accepted evidence and is not completion. Liveness expiry, actual unavailability, an independent user status request, or a dependency that is no longer needed are exceptions.
 - Pure transport/output failure by itself is not semantic evidence requiring `FRESH_W_AUDIT`. Use fresh independence only when framing, root cause, architecture/security/API/schema semantics, tests-as-spec, or prior Worker reasoning is materially uncertain.
 
+### SAME_W_REWORK — continuation / early-return rule
+
+- SAME_W_REWORK is continuation affinity/lineage under fixed spec, not a claim of native persistent session; if native resume is unavailable/lost, reconstructed continuation from the #273 minimal handoff is valid but must not be called same-session.
+- For fixed-spec localized SAME_W_REWORK with required authority/input/capability available, W continues to a terminal result; partial progress, response length, transport inconvenience, or desire for extra clarification alone are not valid RETURN_TO_O reasons.
+- RETURN_TO_O is valid when completion would require scope/authority expansion, a missing decisive input or O decision, conflicting acceptance criteria, materially uncertain root cause/frame/architecture/security/API/schema/tests-as-spec, unsafe/ambiguous effect boundary, or bounded liveness/resource exhaustion.
+- After O supplies a missing delta, continuing the same lineage is preferred when uncertainty did not change; repeated RETURN_TO_O for the same unresolved cause must not loop blindly — reframe/reroute/escalate.
+- A current user turn depending on this W still joins to terminal before O final, subject to bounded liveness; pending/partial is not completion.
+
 ## Release consistency
 
 When W is part of a repo-centered epoch, Chat Dev public control documents it reads must use the same `CONTROL_RELEASE` selected by `BOOTSTRAP.md`, unless the task's exact project-local authority explicitly points elsewhere.
