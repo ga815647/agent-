@@ -4,8 +4,8 @@ Role: stable model-facing runtime entry and immutable release selector.
 
 Authority: this entry is active for a Project only when that Project's active Project Instructions bootstrap points to this stable repo path.
 
-`CHAT_DEV_VERSION=40`
-`CONTROL_RELEASE=e70abe900efa9cf384ab275f7ec950665016fe6d`
+`CHAT_DEV_VERSION=41`
+`CONTROL_RELEASE=4a87b8967e3df4ab4b128e7df6f3c4d57db3bce8`
 
 This is the **model runtime control entry / manifest**. It is not the Project Instructions kernel and not the human adoption guide.
 
