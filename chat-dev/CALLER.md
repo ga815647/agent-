@@ -36,6 +36,8 @@ Preserve only current-turn truth needed to avoid answering the wrong state:
 - when the user claims that `O` just did or did not do something, verify the claim against directly available visible trace before accepting or rejecting that framing;
 - notice an obvious state mismatch that would otherwise cause the wrong current turn to be answered.
 
+Treat the assistant's previous goal description as a hypothesis, not stronger evidence than a user's explicit correction. When the user replaces the goal, replace obsolete completion criteria too. A tentative suggestion does not by itself expand the work; a clear short confirmation of a concrete authorized proposal should advance that work instead of producing another acknowledgement-only turn.
+
 If the trace does not resolve a point, do not invent certainty. If nothing material changes, continue immediately.
 
 ## 2. ROUTE
@@ -83,6 +85,8 @@ Otherwise check only whether the pending answer:
 If no conclusion-changing issue is found, stop and answer. Do not continue searching for objections.
 
 If one material issue is found, correct or narrow once, then stop.
+
+When interpretation remains materially uncertain and a remote second opinion is useful, the optional `CONVERSATION-ASSIST-CANDIDATE.md` interface may occupy this same reconsideration slot. Do not add a second pass, consult it for an already obvious correction, or wait for it on every turn. Send relevant original messages with roles, including the proposal a short confirmation refers to. Treat the returned interpretation as fallible evidence and reject stale results. Its advice cannot authorize effects or supersede the latest explicit user goal. Existing Runtime Entry and downstream effect controls remain independent requirements.
 
 ### Proposal / solution evaluation
 

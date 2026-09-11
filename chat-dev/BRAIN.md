@@ -29,6 +29,8 @@ The caller does not pre-classify downstream control families.
 6. Explicit current instructions are strong evidence; do not invent hidden motives or silently replace an explicitly requested feasible method merely because another seems preferable.
 7. Apply only controls needed by the actual boundary: Worker routing/Stage-1, dependency join, Mutation Lock, and independent hard-commitment review.
 
+If a material interpretation issue benefits from remote advice, `CONVERSATION-ASSIST-CANDIDATE.md` may supply evidence within the existing goal/alternative slot. It does not add a new mandatory dependency or a post-BRAIN pass. Original user corrections override obsolete assistant framing; remote output is not authorization. If decisive uncertainty remains, pause only the action that depends on resolving it and continue independent useful work.
+
 For proposal/solution evaluation, if the means-independent comparison is materially aligned with the proposed method, stop the comparison and continue. If it reveals a conclusion-changing difference, surface or account for that difference before commitment/operational controls. After explicit user approval, ordinary execution does not reopen the chosen method without new material evidence, uncertainty, or tradeoff.
 
 Do not run a separate post-BRAIN reconsideration pass merely to satisfy `CALLER.md`.
