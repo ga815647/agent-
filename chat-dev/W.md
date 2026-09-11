@@ -166,6 +166,26 @@ Do not silently depend on retired automated fresh-Chat/browser/Windows Worker tr
 
 Transport choice changes plumbing only. It does not change W scope, authority, evidence status, dependency semantics, or O's final acceptance/commitment authority.
 
+### Artifact transport / truncation / join
+
+- Persist implementation through a workspace, candidate ref, or durable artifact channel when one is available.
+- Normal model output is a compact control receipt — terminal state, `candidate_ref`/`result_ref`, `changed_paths`, validation/tests, and a minimal note — not full source transport.
+- Returning full code in model text is exception-only: the artifact must be trivially small and no durable artifact channel may be available.
+- `finish_reason=length` / `TRUNCATED` must not trigger an automatic larger-budget retry. Return to O, which may retrieve an already-durable artifact, request a bounded continuation when the protocol genuinely supports it, narrow/reframe the job, or select another eligible executor.
+- At most one retry may be explicitly authorized by O when its expected total cost is lower than the alternatives and there is no duplicate-effect risk. Geometric or open-ended output-budget retry is not the default.
+- A short bounded W dependency needed for the current user turn is normally joined to a terminal state before O gives the final answer. A pending dispatch is not accepted evidence and is not completion. Liveness expiry, actual unavailability, an independent user status request, or a dependency that is no longer needed are exceptions.
+- Pure transport/output failure by itself is not semantic evidence requiring `FRESH_W_AUDIT`. Use fresh independence only when framing, root cause, architecture/security/API/schema semantics, tests-as-spec, or prior Worker reasoning is materially uncertain.
+
+> **SAME_W — transport vs semantic:** `worker_result.status=RETURN_TO_O` is a Worker semantic decision under frozen authority and SHALL NOT be emitted merely for response length/transport inconvenience. `terminal_status=UNAVAILABLE / reason=TRUNCATED` is a transport-layer terminal that returns control to O for transport adjudication only; it is NOT Worker semantic RETURN_TO_O, NOT W completion, and NOT user-turn completion. O must still satisfy the current-turn dependency: retrieve durable artifact if present, use only bounded continuation/recovery if genuinely supported and safe, or reroute/reframe under same frozen authority. No blind full-job resubmit; no geometric token-budget retry.
+
+### SAME_W_REWORK — continuation / early-return rule
+
+- SAME_W_REWORK is continuation affinity/lineage under fixed spec, not a claim of native persistent session; if native resume is unavailable/lost, reconstructed continuation from the #273 minimal handoff is valid but must not be called same-session.
+- For fixed-spec localized SAME_W_REWORK with required authority/input/capability available, W continues to a terminal result; partial progress, response length, transport inconvenience, or desire for extra clarification alone are not valid RETURN_TO_O reasons.
+- RETURN_TO_O is valid when completion would require scope/authority expansion, a missing decisive input or O decision, conflicting acceptance criteria, materially uncertain root cause/frame/architecture/security/API/schema/tests-as-spec, unsafe/ambiguous effect boundary, or bounded liveness/resource exhaustion.
+- After O supplies a missing delta, continuing the same lineage is preferred when uncertainty did not change; repeated RETURN_TO_O for the same unresolved cause must not loop blindly — reframe/reroute/escalate.
+- A current user turn depending on this W still joins to terminal before O final, subject to bounded liveness; pending/partial is not completion.
+
 ## Release consistency
 
 When W is part of a repo-centered epoch, Chat Dev public control documents it reads must use the same `CONTROL_RELEASE` selected by `BOOTSTRAP.md`, unless the task's exact project-local authority explicitly points elsewhere.
