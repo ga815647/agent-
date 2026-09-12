@@ -153,7 +153,7 @@ This invariant applies to O and W source loading; W-specific execution behavior 
 
 Before binding project-specific shorthand to durable meaning, use current conversation plus already-loaded durable truth first. Perform targeted lookup only when multiple materially different referents remain viable and choosing wrong would materially change the answer/route/commitment.
 
-At the end of every final user-visible response under the active caller interface, append the exact active control-latch marker supplied by `CALLER.md`.
+When the active caller interface requires a Runtime Entry attempt report, append its exact receipt marker as specified by `CALLER.md`. Ordinary delivery in `NOT_REQUIRED` has no marker and makes no execution-success claim.
 
 This is a soft protocol; do not claim deterministic or fail-closed enforcement beyond the specific runtime checks actually implemented by an execution substrate.
 

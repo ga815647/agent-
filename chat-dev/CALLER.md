@@ -14,15 +14,16 @@ GROUND -> ROUTE -> RECONSIDER
 
 The envelope must stop as early as possible. It must not create parallel reasoning lanes or visible ceremony.
 
-The separate turn-delivery / consequential-effect receipt invariant is owned by `chat-dev/RUNTIME-ENTRY.md` from the same `CONTROL_RELEASE`. It does not change the binary caller route. On a fresh epoch, load that interface immediately after this caller interface so current-turn Runtime Entry can overlap independent read-only rollover/bootstrap rehydration instead of being serialized behind it.
+The consequential-effect / requested Runtime Entry receipt invariant is owned by `chat-dev/RUNTIME-ENTRY.md` from the same `CONTROL_RELEASE`. It does not change the binary caller route. On a fresh epoch, load that interface immediately after this caller interface. Ordinary delivery does not depend on a backend receipt.
 
-### Per-turn Runtime Entry preflight
+### Effect-dependent Runtime Entry preflight
 
-For **every O user turn**, treat current-turn Runtime Entry initiation as an early caller preflight rather than an end-of-response cleanup step.
+Initiate current-turn Runtime Entry when the turn is to execute a consequential external effect/commitment, or the user explicitly requests a Runtime Entry test. Apply the same-release receipt interface before the dependent effect; do not initiate a request merely to answer an ordinary question, clarify intent, report observed status, or explain a blocker.
 
-- If the turn does not yet have a validated current-turn Runtime Entry result, initiate the current-turn request as soon as the turn envelope is available and before substantial context-expanding tool work when practical.
-- Do not serialize harmless independent read-only work behind receipt latency; the request may complete in parallel and is joined before any consequential external effect and before final delivery.
-- If no current-turn request was ever initiated, do not treat that omission itself as evidence of backend unavailability. Attempt/initiate the request before selecting `NO-RECEIPT`.
+- When Runtime Entry is required, initiate the request as soon as the effect-bound turn envelope is available. A later decision to execute an effect must satisfy this preflight before execution.
+- Do not serialize harmless independent read-only work or ordinary delivery behind receipt latency. Pending effect-dependent work remains pending; delivering a status update does not release it.
+- A BRAIN route alone does not require a receipt, and a DIRECT label cannot exempt an actual consequential effect. Worker dispatch, required dependency acceptance, canonical promotion and every existing effect control retain their existing requirements.
+- Do not treat a deliberately unneeded request as backend failure. If a required request is denied before dispatch, report that denial and stop that operation; do not change its payload, identity, tool or transport to get it through.
 - This preflight restates the same-release `RUNTIME-ENTRY.md` obligation for caller salience only. It does not create a platform interceptor, deterministic latch, new actor, new authority, or stronger success claim.
 
 ## 1. GROUND
@@ -128,18 +129,18 @@ The caller envelope must not:
 
 `O` retains Worker/Reviewer evidence acceptance, formal state transitions, commitments, and final synthesis. BRAIN/Worker/Reviewer/Mutation Lock/dependency authority semantics remain owned by their canonical contracts.
 
-## Runtime receipt latch
+## Runtime receipt reporting
 
-For every final user-visible response under this interface, load and obey `chat-dev/RUNTIME-ENTRY.md` from the same `CONTROL_RELEASE`.
+Apply `chat-dev/RUNTIME-ENTRY.md` from the same `CONTROL_RELEASE`. An ordinary response without a requested or effect-dependent Runtime Entry attempt needs no receipt and no marker. It does not establish execution success or authorize a later effect.
 
-The absolute final line must be exactly one of the states authorized by that interface:
+When reporting a Runtime Entry attempt, the absolute final line must be exactly one of the states authorized by that interface:
 
 - successful current-turn backend receipt: `[CHATDEV｜OK｜ID=<receipt>]`;
 - validated backend terminal error: `[CHATDEV｜ERROR｜ID=<failure_receipt>]`;
-- no validated terminal receipt at all: `[CHATDEV｜NO-RECEIPT]`.
+- no validated terminal receipt at delivery: `[CHATDEV｜NO-RECEIPT]` (state explicitly whether the attempt remains pending, was denied, or failed retrieval).
 
-Only `OK` is compliant success. `ERROR` and `NO-RECEIPT` are observable turn-entry failures and do not authorize consequential external effects/commitments.
+Only `OK` proves successful Runtime Entry execution. `ERROR` and `NO-RECEIPT` do not authorize consequential external effects/commitments. A pending attempt is not evidence that the backend failed.
 
 Nothing user-visible may follow the Runtime Entry marker.
 
-Failing to select/apply the required internal route, executing a required BRAIN boundary before BRAIN load, fabricating/reusing a receipt, or missing the required absolute-final Runtime Entry marker is an observable soft-latch consistency failure.
+Failing to select/apply the required internal route, executing a required BRAIN boundary before BRAIN load, fabricating/reusing a receipt, or missing a marker when reporting a Runtime Entry attempt is an observable soft-protocol consistency failure.

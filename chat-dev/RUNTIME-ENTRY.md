@@ -2,97 +2,53 @@
 
 Authority: this interface is active only when loaded from the exact `CONTROL_RELEASE` selected by the active `chat-dev/BOOTSTRAP.md` for the current Project/epoch.
 
-Role: provide one observable, backend-derived turn receipt without making the Runtime Wrapper a new actor, authority, semantic router, or approval gate.
+Role: provide backend-derived execution evidence for consequential effects and explicitly requested Runtime Entry tests. It is a soft caller protocol, not a platform interceptor, semantic router, or source of authorization.
 
-This is a soft caller protocol backed by a private execution substrate. It does not create a deterministic platform interceptor.
+## Applicability
 
-## Turn contract
+Runtime Entry is required before a consequential external effect/commitment and when the user explicitly requests a Runtime Entry test. It is not a prerequisite for ordinary questions, clarification, read-only findings, or status/blocker delivery. Do not create a mailbox request merely to permit an ordinary reply.
 
-For every `O` user turn:
+This exemption applies to delivery only. It does not exempt Worker dispatch, required Worker/Reviewer dependency acceptance, canonical promotion, or any effect previously requiring Runtime Entry. A status response cannot claim completion, release a dependency, accept evidence, or make a commitment under the guise of ordinary conversation.
 
-1. **Early cue, not first-action requirement.** If substantial context-expanding tool work is about to begin and the turn does not yet have a validated Runtime Entry result, prefer to obtain one first. Missing this early cue is recoverable; it is not itself a correctness failure.
-2. **Fresh-epoch overlap.** After stable bootstrap and the exact pinned `CALLER.md` are known, initiate the current turn's Runtime Entry as soon as the turn envelope is available. While the backend is pending, `O` should continue independent read-only bootstrap/rollover rehydration that does not depend on the receipt, then join the receipt before consequential effect or final delivery. Do not serialize harmless rehydration behind receipt latency merely for ceremony.
-3. **Explicit pending state.** After a current-turn request is successfully initiated and the immediate observed state is non-terminal, `O` explicitly treats the current delivery state as `DELIVERY_STATE=PENDING`. This acknowledgement is control state, not a requirement to add user-visible ceremony. A non-terminal `REQUEST` / `PENDING` observation is latency evidence only; it is not `NO-RECEIPT` evidence.
-4. **Before consequential external effect.** A consequential external mutation/commitment must not execute before the current turn has a validated terminal Runtime Entry result plus every other required BRAIN / Mutation Lock / Reviewer / dependency control.
-5. **Before final delivery.** Before a final user-visible response, enter the `DELIVERY_GATE` below. If the result changes relevant control state, discard or recompute affected provisional pre-receipt reasoning before delivery.
-6. **Absolute-final marker.** The Runtime Entry marker is the final line of the assistant response. Nothing user-visible follows it.
+DIRECT/BRAIN routing, Worker routing, BRAIN, Mutation Lock, Reviewer adjudication, dependency controls and O authority remain unchanged. If ordinary discussion later leads to an effect, obtain the required current-turn receipt and satisfy those controls before executing it.
 
-Runtime Entry does not replace DIRECT/BRAIN route selection, Worker routing, Reviewer adjudication, Mutation Lock, or O authority.
+## Required attempt
 
-## DELIVERY_GATE
+1. Initiate once when the effect-bound turn envelope is known, using the authorized execution-plane interface. Continue independent harmless work while pending.
+2. Bind the attempt and any terminal result to the current turn. Validate backend identity and the existing result contract; never invent or reuse a receipt.
+3. Execute a consequential effect only after a validated current-turn `TERMINAL_OK` and all other required controls. An error or pending state does not release the effect.
+4. If the transport denies an operation before dispatch, report that denial. Do not retry through a different payload, identity, tool, release selector or transport to accomplish the denied operation. Do not call a denial a pending backend job when no acknowledgement exists.
+5. A delivery timeout does not authorize a duplicate submission. Continue status retrieval using the acknowledged identity only.
 
-`DELIVERY_GATE` is a narrow finalization-state guard, not another reasoning pass, actor, router, reviewer, approval gate, or platform-level hard latch.
+## Delivery and bounded waiting
 
-Immediately before final delivery, classify only the current turn's Runtime Entry state:
+Before delivery, distinguish these states:
 
-- `TERMINAL_OK` — final delivery is eligible; emit the exact current-turn backend OK marker.
-- `TERMINAL_ERROR` — harmless final delivery is eligible with the exact current-turn backend ERROR marker; consequential external effects/commitments remain blocked.
-- `PENDING` / `REQUEST` — final delivery is not yet eligible. Continue bounded JOIN / retrieval. Do not select `NO-RECEIPT` merely because one or several early reads remain non-terminal.
-- `NOT_STARTED` — initiate the current-turn Runtime Entry request; final delivery is not yet eligible.
-- `TERMINAL_RETRIEVAL_UNAVAILABLE` — harmless final delivery may use `NO-RECEIPT`; consequential external effects/commitments remain blocked.
+- `NOT_REQUIRED`: ordinary reply, no attempt made or needed. Deliver without a Runtime Entry marker. This is not backend success or failure.
+- `TERMINAL_OK`: report the validated current-turn backend OK receipt. It proves Runtime Entry execution only.
+- `TERMINAL_ERROR`: report the exact current-turn backend ERROR receipt; dependent effects remain blocked.
+- `PENDING`: an acknowledged attempt is non-terminal. A truthful ordinary status response may be delivered immediately with `NO-RECEIPT`, explicitly saying the attempt is pending. Do not claim completion or release dependent work.
+- `UNAVAILABLE`: initiation was denied, failed, or terminal retrieval is unavailable. Report the observed cause with `NO-RECEIPT`; dependent effects remain blocked.
+- `NOT_STARTED` but required: initiate before the effect, or deliver a truthful explanation that it has not started. Never imply that unattempted work is acknowledged or complete.
 
-Conceptually:
+There is **no mandatory six-minute wait before ordinary delivery**. When waiting for a requested result is useful, use a foreground retrieval budget of at most **30 seconds from acknowledgement**, then report pending/unavailable unless a validated terminal result is already available. This is a caller waiting budget, not a provider deadline or a guarantee of end-to-end Chat latency. Do not start another wait window in the same turn to postpone the status response indefinitely.
 
-```text
-FINALIZE?
-  -> current-turn terminal OK/ERROR? -> FINAL with exact terminal marker
-  -> current-turn REQUEST/PENDING? -> JOIN, then re-enter DELIVERY_GATE
-  -> current-turn NOT_STARTED? -> INITIATE, then JOIN
-  -> terminal retrieval unavailable? -> harmless FINAL with NO-RECEIPT
-```
+Terminal results arriving after a delivered `NO-RECEIPT` remain historical evidence for that attempt. They cannot retroactively change the delivered marker or serve as another turn's effect receipt. Later work retrieves its existing acknowledged job instead of silently repeating it; any new consequential effect still requires the current turn's own valid controls.
 
-### Bounded liveness
+## Receipt markers
 
-`PENDING` must not become an infinite wait.
+When reporting an attempted Runtime Entry, use the absolute final line:
 
-The current public delivery budget is **6 minutes from successful current-turn Runtime Entry initiation**.
+- validated current-turn success: `[CHATDEV｜OK｜ID=<receipt>]`;
+- validated current-turn terminal error: `[CHATDEV｜ERROR｜ID=<failure_receipt>]`;
+- no validated current-turn terminal receipt at delivery: `[CHATDEV｜NO-RECEIPT]`.
 
-- While the request remains `REQUEST` / `PENDING` inside that budget, keep final delivery ineligible and continue bounded JOIN / retrieval when needed.
-- When that budget is exhausted without a validated terminal result, perform one final current-turn retrieval attempt.
-- If that final retrieval still shows a non-terminal request, or the retrieval itself is unavailable, classify the current turn as `TERMINAL_RETRIEVAL_UNAVAILABLE` and use the `NO-RECEIPT` rules below.
-- A terminal result that appears only after the turn has already been delivered as `NO-RECEIPT` is stale historical evidence for that delivered turn. It must not retroactively change the delivered marker and must never be reused as the receipt for a later turn. A later user turn requires its own fresh Runtime Entry request.
+Nothing user-visible follows that marker. For `NO-RECEIPT`, explain the observed pending/denied/unavailable state in the response. It is not degraded success, proof of a general outage, or permission for an effect. Do not fabricate a `PENDING` receipt or a new backend status.
 
-The delivery budget is a liveness bound, not a claim that the backend normally takes six minutes. Ordinary non-terminal reads before the bound remain latency observations, not failure evidence.
+An ordinary response in `NOT_REQUIRED` has no marker. Omitting a marker in that case is intentional, not a compliance failure. When a required attempt was not started, state that fact without claiming an attempt or inventing a receipt; the dependent effect remains blocked.
 
-## Success
+## Ownership
 
-A compliant successful turn requires the exact backend-generated current-turn marker:
+O retains evidence acceptance, formal state transitions, commitments and final synthesis. The private execution plane owns mutable transport details, mailbox identities, provider configuration and deployment state. Public control documents do not duplicate those values as current truth.
 
-`[CHATDEV｜OK｜ID=<receipt>]`
-
-Rules:
-
-- `<receipt>` must come from the validated terminal Runtime Entry result for the current turn;
-- `O` must never invent, reuse from another turn, or rewrite an OK receipt;
-- the marker proves Runtime Entry execution only; it does not prove semantic route correctness or grant approval.
-
-## Backend terminal error
-
-If Runtime Entry itself returns a validated terminal error, use the exact backend-generated failure marker:
-
-`[CHATDEV｜ERROR｜ID=<failure_receipt>]`
-
-A backend ERROR is trusted evidence that the turn-entry backend terminated in error, but it is **not** compliant success. Consequential external effects/commitments remain blocked for that turn unless a separately valid current-turn success result is later obtained before delivery.
-
-## No terminal receipt
-
-If `DELIVERY_GATE` reaches `TERMINAL_RETRIEVAL_UNAVAILABLE`, a harmless ordinary reply may continue only with:
-
-`[CHATDEV｜NO-RECEIPT]`
-
-`NO-RECEIPT` is an observable soft-latch failure. It is not proof of general backend unavailability, not degraded success, and not permission to bypass the Runtime Entry contract.
-
-Under `NO-RECEIPT`:
-
-- do not claim Wrapper success or general availability state;
-- consequential external effects/commitments remain blocked;
-- ordinary harmless conversation may continue so Chat Dev does not fail closed for all chat during execution-plane outage or an exhausted current-turn delivery budget;
-- any later result from that delivered turn remains stale and cannot be reused.
-
-## Authority and transport ownership
-
-`O` retains sole evidence acceptance, formal state-transition, commitment, and final-synthesis authority.
-
-The private Chat Dev execution plane owns mutable Runtime Entry transport/implementation details. Public control documents define semantics only and must not duplicate mutable mailbox IDs, workflow names, provider/runtime configuration, or other execution-local state as current truth.
-
-A backend receipt is execution evidence, not authority transfer.
+A backend receipt remains execution evidence, not authority transfer. This interface does not repair or bypass platform safety decisions and does not select a new transport.
