@@ -128,7 +128,7 @@ It may be set `true` only when the current release-pinned O/BRAIN path has expli
 
 Planner/runtime/Worker cannot promote false to true. If false, Unified RUN performs zero delegated subwork. If true, RUN may choose bounded 0 / 1 / N subwork inside the locked authority.
 
-When the bound episode needs zero subwork, validate deterministically and lock without invoking any model gate; log the short-circuit `{model_calls:0}`.
+When the bound episode needs zero subwork, validate deterministically and lock without invoking any model gate; log the short-circuit `{model_calls:0}`. Set envelope key `deterministic_lock_asserted: true` only when `delegation_allowed` is false, `momentum_risk` is LOW, `rethink_depth` is NONE, and `allowed_effects` is empty; any other combination is rejected by RUN (`INVALID_DETERMINISTIC_ASSERT`) and the gate runs normally.
 
 Effect authorization is a pre-execution record: exact effect, scope check, and authorization reference bound here and enforced at Mutation Lock. Completion evidence comes after the effect via RUN terminal; a RUN that must produce an effect to complete is authorized by this pre-record, never blocked waiting for its own terminal receipt.
 
