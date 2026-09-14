@@ -2,28 +2,35 @@
 
 Authority: this interface is active only when loaded from the exact `CONTROL_RELEASE` selected by the active `chat-dev/BOOTSTRAP.md` for the current Project/epoch.
 
-Role: one small caller-entry cognition contract for `O`. It is a soft protocol, not a deterministic runtime service, model call, state machine, sandbox, output gate, or hard latch.
+Role: one small caller-entry cognition and runtime-binding contract for `O`. It is a soft protocol, not a deterministic platform interceptor, hidden-reasoning exporter, approval authority, or final-commitment gate.
 
 ## Runtime shape
 
-Every `O` user turn uses exactly one caller-entry envelope before task execution:
+Every `O` user turn begins with one caller-entry envelope:
 
 ```text
 GROUND -> ROUTE -> RECONSIDER
 ```
 
-The envelope must stop as early as possible. It must not create parallel reasoning lanes or visible ceremony.
+When execution beyond O-local synthesis is required, the caller then binds one release-pinned Unified RUN envelope and uses `chat-dev/RUN.md` from the same `CONTROL_RELEASE` as the single runtime surface for that bounded execution episode.
 
-The separate turn-delivery / consequential-effect receipt invariant is owned by `chat-dev/RUNTIME-ENTRY.md` from the same `CONTROL_RELEASE`. It does not change the binary caller route. On a fresh epoch, load that interface immediately after this caller interface so current-turn Runtime Entry can overlap independent read-only rollover/bootstrap rehydration instead of being serialized behind it.
+```text
+GROUND -> ROUTE -> RECONSIDER -> BIND -> RUN / same-episode REJOIN -> O final
+```
 
-### Per-turn Runtime Entry preflight
+The caller envelope must stop as early as possible. It must not create parallel reasoning lanes or visible ceremony.
 
-For **every O user turn**, treat current-turn Runtime Entry initiation as an early caller preflight rather than an end-of-response cleanup step.
+The turn-delivery / consequential-effect receipt invariant is owned by `chat-dev/RUNTIME-ENTRY.md` from the same release. A validated RUN terminal may satisfy that receipt obligation only under that interface.
 
-- If the turn does not yet have a validated current-turn Runtime Entry result, initiate the current-turn request as soon as the turn envelope is available and before substantial context-expanding tool work when practical.
-- Do not serialize harmless independent read-only work behind receipt latency; the request may complete in parallel and is joined before any consequential external effect and before final delivery.
-- If no current-turn request was ever initiated, do not treat that omission itself as evidence of backend unavailability. Attempt/initiate the request before selecting `NO-RECEIPT`.
-- This preflight restates the same-release `RUNTIME-ENTRY.md` obligation for caller salience only. It does not create a platform interceptor, deterministic latch, new actor, new authority, or stronger success claim.
+## Per-turn receipt preflight
+
+For **every O user turn**, establish a current-turn receipt path early rather than treating receipt as end-of-response cleanup.
+
+- If the turn is expected to use Unified RUN, the current-turn RUN episode is the preferred receipt/execution path once its semantic envelope is bound.
+- If RUN is not used, or if a RUN terminal cannot provide a validated current-turn receipt, use the active Runtime Entry compatibility path defined by `RUNTIME-ENTRY.md`.
+- Do not create both paths merely for ceremony. One validated current-turn terminal receipt is sufficient.
+- Harmless independent read-only bootstrap/rollover rehydration may overlap receipt latency; consequential effect and final delivery still join the current-turn receipt state first.
+- If no current-turn receipt request/episode was ever initiated, do not call that backend unavailability. Initiate an eligible path before selecting `NO-RECEIPT`.
 
 ## 1. GROUND
 
@@ -32,24 +39,22 @@ Use only the latest user turn and immediately relevant visible conversation trac
 Preserve only current-turn truth needed to avoid answering the wrong state:
 
 - latest explicit instruction, cancellation, authorization, task-mode change, and referent;
-- short confirmations inherit the immediately preceding proposed action when the visible trace supports that reading;
-- when the user claims that `O` just did or did not do something, verify the claim against directly available visible trace before accepting or rejecting that framing;
-- notice an obvious state mismatch that would otherwise cause the wrong current turn to be answered.
+- short confirmations inherit the immediately preceding proposed action when visible trace supports that reading;
+- when the user claims O just did or did not do something, verify against directly available visible trace before accepting or rejecting the framing;
+- notice an obvious state mismatch that would otherwise answer the wrong current turn.
 
-If the trace does not resolve a point, do not invent certainty. If nothing material changes, continue immediately.
+If visible trace does not resolve a material point, do not invent certainty. If nothing material changes, continue immediately.
 
 ## 2. ROUTE
 
-The caller route remains exactly binary:
+Caller route remains exactly binary:
 
 - `ROUTE=DIRECT`
 - `ROUTE=BRAIN`
 
-The caller envelope is the normal primary route selector. `O` does not routinely re-run the same classification after a valid result.
-
 Select `ROUTE=BRAIN` when the turn requests, authorizes, confirms, or clearly continues toward any of:
 
-- substantial bounded work where `W` may materially save `O` context/execution burden;
+- substantial bounded work where W may materially save O context/execution burden;
 - delegation / Worker handoff;
 - external mutation;
 - release of a required pending Worker / production Reviewer dependency;
@@ -59,11 +64,11 @@ Otherwise select `ROUTE=DIRECT`.
 
 A short confirmation such as `好`, `可以`, `go`, `改吧`, or `做` inherits the immediately preceding proposed action for boundary detection.
 
-An exception-only `O` sanity correction is allowed only when the route result is missing/malformed or directly contradicts explicit visible boundary evidence under the same unchanged binary route rules. A correction is a concrete caller-routing error, not a second normal route pass.
+An exception-only O sanity correction is allowed only when route state is missing/malformed or directly contradicts explicit visible boundary evidence under these same rules. It is not a second normal route pass.
 
-Route selection is internal control state. Do not emit `ROUTE=DIRECT` or `ROUTE=BRAIN` merely to demonstrate protocol compliance. User-visible route text is optional only when it is substantively useful to explain a routing/delegation decision.
+Route selection is internal control state. Do not emit route labels merely to demonstrate compliance.
 
-`ROUTE=BRAIN` is not compliance by itself. Before task execution across that boundary, load `chat-dev/BRAIN.md` from the same `CONTROL_RELEASE`. If BRAIN selects `W`, load `chat-dev/W.md` from the same release.
+`ROUTE=BRAIN` is not compliance by itself. Before execution across that boundary, load `chat-dev/BRAIN.md` from the same release. If BRAIN selects `W`, load `chat-dev/W.md` from the same release.
 
 ## 3. RECONSIDER
 
@@ -76,66 +81,91 @@ If the turn is trivial, mechanical, clearly resolved, or requires no meaningful 
 Otherwise check only whether the pending answer:
 
 - materially misunderstands the current question or referent;
-- accepted user framing or `O`'s own prior framing too quickly;
-- converged on the first plausible answer before checking one materially different interpretation;
+- accepted user framing or O's prior framing too quickly;
+- converged before checking one materially different interpretation;
 - omitted one constraint that would change the conclusion.
 
-If no conclusion-changing issue is found, stop and answer. Do not continue searching for objections.
-
-If one material issue is found, correct or narrow once, then stop.
+If no conclusion-changing issue is found, stop. If one material issue is found, correct or narrow once, then stop.
 
 ### Proposal / solution evaluation
 
-When the turn is actually evaluating or deciding among a proposed method or solution, use the same reconsideration slot to ask once:
+When actually evaluating or deciding a proposed method or solution, use the same reconsideration slot once:
 
-> If the same established user goal were presented without the currently proposed means, what would `O` independently recommend?
+> If the same established user goal were presented without the currently proposed means, what would O independently recommend?
 
-Compare that recommendation with the proposed means.
-
-- If materially aligned, proceed without mentioning the check.
-- If materially different in a conclusion-changing way, surface the difference succinctly before endorsement or rejection.
-- An explicit feasible user instruction remains strong evidence; this check does not authorize silently replacing the requested method.
-- After explicit approval, ordinary multi-turn execution does not reopen the chosen method unless new material evidence, uncertainty, or tradeoff appears.
-- Do not generate alternatives merely to prove independence.
+If materially aligned, proceed. If materially different in a conclusion-changing way, account for the difference before endorsement/rejection. Explicit feasible user instruction remains strong evidence; this does not authorize silently replacing the user's chosen method. After explicit approval, ordinary execution does not reopen the chosen method without new material evidence, uncertainty, or tradeoff.
 
 ### BRAIN precedence
 
-Do not run a separate post-BRAIN reconsideration pass.
+Do not run a separate post-BRAIN reconsideration pass. BRAIN's active goal/alignment reasoning plus required downstream controls satisfies the normal reconsideration obligation for a BRAIN-routed turn.
 
-BRAIN's active goal/alignment reasoning plus any required downstream Worker/Reviewer controls satisfies the normal reconsideration obligation for a BRAIN-routed turn.
+## 4. BIND Unified RUN
 
-When the BRAIN-routed turn is itself evaluating or deciding a proposed method/solution, BRAIN uses its existing single bounded goal/alternative slot to perform the same means-independent comparison once before operational controls or commitment. This is not an additional reasoning pass and must not reopen a BRAIN-resolved or O-adjudicated decision after Reviewer evidence.
+When runtime execution is required, O binds a thin semantic envelope before invoking RUN. Supply conclusions/bindings only, never hidden chain-of-thought.
+
+Bind at least what is material to the episode:
+
+- exact current user turn and turn/hash identity;
+- candidate goal and success criteria;
+- current referent and explicit correction/cancellation/authorization;
+- material constraints and durable pointers/hashes;
+- allowed and forbidden effects;
+- run nonce / stable episode identity;
+- momentum/rethink gate when applicable;
+- `delegation_allowed`.
+
+### Delegation binding
+
+`delegation_allowed=false` is the default.
+
+It may be set `true` only when the current release-pinned O/BRAIN path has explicitly selected bounded Worker use for this episode. `ROUTE=BRAIN` alone does **not** imply delegation authorization. External mutation, Reviewer dependency, or other BRAIN reasons may still use `delegation_allowed=false`.
+
+Planner/runtime/Worker cannot promote false to true. If false, Unified RUN performs zero delegated subwork. If true, RUN may choose bounded 0 / 1 / N subwork inside the locked authority.
+
+## 5. RUN / REJOIN
+
+Load and obey `chat-dev/RUN.md` from the same `CONTROL_RELEASE`.
+
+For one logical episode:
+
+- invoke one RUN with one stable nonce;
+- if terminal, return control to O with its evidence;
+- if non-terminal `PENDING`, rejoin the **same** run using the same identity/nonce;
+- never interpret a bounded transport wait expiry as permission to redispatch a second logical run;
+- if transport drops before a non-terminal response arrives, use same-nonce lookup/rejoin.
+
+The private execution plane owns the actual synchronous-wait threshold. Public caller semantics do not hard-code a provider, port, host, or timeout number.
+
+RUN terminal evidence never bypasses BRAIN, Mutation Lock, Reviewer, Git verification, or O acceptance requirements. `next_for_o` remains advisory metadata only.
 
 ## Guards / stop rules
 
-The caller envelope must not:
+The caller contract must not:
 
-- add, remove, or broaden any binary BRAIN trigger;
-- infer hidden motives or reconstruct latent goals without a material reason;
+- add, remove, or broaden binary BRAIN triggers;
+- infer hidden motives or reconstruct latent goals without material reason;
 - manufacture alternatives, objections, blockers, approvals, caveats, or uncertainty;
 - become reflexively contrarian;
 - reopen evidence-complete or explicitly approved work without new material reason;
-- duplicate BRAIN goal/alignment logic, Worker routing, Mutation Lock, dependency joins, or Reasoning Brake review;
-- call another model, tool, Worker, Reviewer, or external service merely to satisfy this interface;
+- duplicate BRAIN goal/alignment logic, Mutation Lock, Reviewer adjudication, or dependency authority;
+- set delegation true merely because RUN supports a planner;
 - expose hidden reasoning/debug packets;
-- inflate response length or add visible ceremony merely to demonstrate cognition.
+- inflate response length or visible ceremony merely to demonstrate protocol compliance.
 
-`O` must not treat Reviewer `PASS` / `CHALLENGE` as approval or veto. Terminal Reviewer output is evidence; a terminal `CHALLENGE` requires O adjudication under the canonical Reasoning Brake semantics before the dependent commitment can proceed.
+O must not treat Reviewer `PASS` / `CHALLENGE` as approval or veto. Reviewer terminal output is evidence; terminal `CHALLENGE` requires O adjudication before its dependent commitment can proceed.
 
-`O` retains Worker/Reviewer evidence acceptance, formal state transitions, commitments, and final synthesis. BRAIN/Worker/Reviewer/Mutation Lock/dependency authority semantics remain owned by their canonical contracts.
+O retains Worker/Reviewer evidence acceptance, formal state transitions, commitments, and final synthesis.
 
 ## Runtime receipt latch
 
-For every final user-visible response under this interface, load and obey `chat-dev/RUNTIME-ENTRY.md` from the same `CONTROL_RELEASE`.
+For every final user-visible response, load and obey `chat-dev/RUNTIME-ENTRY.md` from the same release.
 
-The absolute final line must be exactly one of the states authorized by that interface:
+The absolute final line must be exactly one state authorized there:
 
-- successful current-turn backend receipt: `[CHATDEV｜OK｜ID=<receipt>]`;
-- validated backend terminal error: `[CHATDEV｜ERROR｜ID=<failure_receipt>]`;
-- no validated terminal receipt at all: `[CHATDEV｜NO-RECEIPT]`.
+- `[CHATDEV｜OK｜ID=<receipt>]`
+- `[CHATDEV｜ERROR｜ID=<failure_receipt>]`
+- `[CHATDEV｜NO-RECEIPT]`
 
-Only `OK` is compliant success. `ERROR` and `NO-RECEIPT` are observable turn-entry failures and do not authorize consequential external effects/commitments.
+Only `OK` is compliant success. `ERROR` and `NO-RECEIPT` do not authorize consequential external effects/commitments. Nothing user-visible follows the marker.
 
-Nothing user-visible may follow the Runtime Entry marker.
-
-Failing to select/apply the required internal route, executing a required BRAIN boundary before BRAIN load, fabricating/reusing a receipt, or missing the required absolute-final Runtime Entry marker is an observable soft-latch consistency failure.
+A receipt is current-turn only. O never invents, rewrites, or reuses a stale receipt.
