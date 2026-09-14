@@ -25,9 +25,10 @@ For every `O` user turn:
 2. **RUN preference when execution is needed.** If the turn is expected to use Unified RUN, bind the current semantic envelope and use that same durable RUN episode as the preferred execution/receipt path. Do not create a second logical run merely to obtain a receipt.
 3. **Compatibility path when RUN is absent.** If RUN is not used, or its eventual terminal cannot supply a validated current-turn receipt, initiate/join the compatibility Runtime Entry path.
 4. **Explicit pending state.** After successful initiation, any non-terminal `REQUEST` / `PENDING` observation means `DELIVERY_STATE=PENDING`. It is latency evidence, not `NO-RECEIPT` evidence and not a runtime-failure terminal.
-5. **Before consequential external effect.** A consequential mutation/commitment must not execute before the current turn has a validated terminal OK receipt plus every other required BRAIN / Mutation Lock / Reviewer / dependency control.
+5. **Before consequential external effect.** A consequential mutation/commitment must not execute before the pre-execution authorization record (exact effect plus scope check, bound in BIND/Mutation Lock) plus every other required BRAIN / Mutation Lock / Reviewer / dependency control. Completion evidence follows via terminal receipt; the receipt is evidence, never the authorization.
 6. **Before final delivery.** Enter `DELIVERY_GATE`. Final delivery remains ineligible while the current receipt path is non-terminal inside the active liveness budget.
 7. **Absolute-final marker.** The receipt marker is the final line of the assistant response. Nothing user-visible follows it.
+8. **Ordinary-chat exemption.** Turns with no task, delegation, or effect use no receipt path, enter no DELIVERY_GATE, and carry no marker.
 
 Runtime Entry does not replace DIRECT/BRAIN route selection, Worker routing, Reviewer adjudication, Mutation Lock, or O authority.
 
@@ -88,7 +89,7 @@ The public delivery budget remains **6 minutes from successful current-turn rece
 - If final retrieval still shows non-terminal state, or retrieval itself is unavailable, classify `TERMINAL_RETRIEVAL_UNAVAILABLE` and use the `NO-RECEIPT` rules below.
 - A terminal result appearing only after a turn was already delivered as `NO-RECEIPT` is stale historical evidence for that delivered turn. It cannot retroactively change the marker and cannot be reused for a later turn.
 
-The delivery budget is a liveness bound, not a runtime job deadline and not a claim that one transport invocation remains open for six minutes.
+The delivery budget is a liveness bound, not a runtime job deadline and not a claim that one transport invocation remains open for six minutes. It bounds status reporting (accepted/pending/terminal stated as-is); pending is reported as pending, never as complete.
 
 ## Success
 
