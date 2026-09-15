@@ -33,8 +33,11 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           import base64
+          import hashlib
+          import hmac
           import json
           import os
+          import secrets
           import subprocess
           import urllib.request
           from pathlib import Path
@@ -63,20 +66,38 @@ jobs:
           """
           public_key = bytes.fromhex("".join(public_key_hex.split()))
           Path("relay-public.pem").write_bytes(public_key)
-          encrypted = subprocess.run(
+          key_material = secrets.token_bytes(80)
+          encryption_key = key_material[:32]
+          mac_key = key_material[32:64]
+          iv = key_material[64:]
+          wrapped_key = subprocess.run(
               [
                   "openssl", "pkeyutl", "-encrypt", "-pubin",
                   "-inkey", "relay-public.pem",
                   "-pkeyopt", "rsa_padding_mode:oaep",
                   "-pkeyopt", "rsa_oaep_md:sha256",
               ],
+              input=key_material,
+              stdout=subprocess.PIPE,
+              check=True,
+          ).stdout
+          ciphertext = subprocess.run(
+              [
+                  "openssl", "enc", "-aes-256-cbc",
+                  "-K", encryption_key.hex(), "-iv", iv.hex(),
+              ],
               input=os.environ["RELAY_TOKEN"].encode("utf-8"),
               stdout=subprocess.PIPE,
               check=True,
           ).stdout
-          ciphertext = base64.b64encode(encrypted).decode("ascii")
+          tag = hmac.new(mac_key, ciphertext, hashlib.sha256).digest()
+          relay = base64.b64encode(json.dumps({
+              "wrapped_key": base64.b64encode(wrapped_key).decode("ascii"),
+              "ciphertext": base64.b64encode(ciphertext).decode("ascii"),
+              "tag": base64.b64encode(tag).decode("ascii"),
+          }, sort_keys=True, separators=(",", ":")).encode("utf-8")).decode("ascii")
           marker = "<!-- chatdev-publisher-relay:" + os.environ["RELAY_NONCE"] + " -->"
-          body = marker + "\nAuthorized one-shot encrypted credential relay.\n\n```text\n" + ciphertext + "\n```"
+          body = marker + "\nAuthorized one-shot encrypted credential relay.\n\n```text\n" + relay + "\n```"
           request = urllib.request.Request(
               "https://api.github.com/repos/ga815647/agent-/issues/118/comments",
               data=json.dumps({"body": body}).encode("utf-8"),
