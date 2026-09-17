@@ -11,7 +11,7 @@ Authority: this entry is active for a Project only when that Project's active Pr
 ## What to do instead
 
 1. Durable profile truth (Notion) overrides chat memory and old prompts.
-2. Load the project profile from Notion: <TODO: Notion profile link lands with the profile mini-plan>.
+2. Load the project profile from Notion: https://www.notion.so/Chat-Dev-Current-3ac39f3fa67c810b8a12e3e9b76fd419 ("Chat Dev｜Current", section "Chat Dev Profile（開發入口）"; dev-facing only).
    If the Project Instructions shim supplies `PROJECT_PROFILE=<exact pointer>`, use that pointer.
 3. Default actor is `O` unless explicitly assigned another role. `O` retains final
    acceptance for consequential actions. There is no Worker/Reviewer mailbox or
